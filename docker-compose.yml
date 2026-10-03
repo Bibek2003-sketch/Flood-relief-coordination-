@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: floodrelief_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      - MONGO_INITDB_DATABASE=floodrelief
+    networks:
+      - floodrelief_network
+
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: floodrelief_server
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGODB_URI=mongodb://mongodb:27017/floodrelief
+      - JWT_SECRET=super_secret_jwt_key_for_demo
+      - JWT_REFRESH_SECRET=super_secret_refresh_key_for_demo
+      - CLIENT_URL=http://localhost:5173
+    depends_on:
+      - mongodb
+    networks:
+      - floodrelief_network
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: floodrelief_client
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api/v1
+    depends_on:
+      - server
+    networks:
+      - floodrelief_network
+
+volumes:
+  mongo_data:
+
+networks:
+  floodrelief_network:
+    driver: bridge
