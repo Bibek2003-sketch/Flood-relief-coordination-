@@ -226,7 +226,7 @@ const Login = () => {
               theme="filled_black"
               shape="pill"
               text="signin_with"
-              width="100%"
+              width="350"
             />
           </div>
           <div className="text-[10px] font-mono text-center text-slate-500">
