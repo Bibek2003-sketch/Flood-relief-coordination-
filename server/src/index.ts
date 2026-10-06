@@ -52,7 +52,7 @@ io.on('connection', (socket) => {
 app.set('io', io);
 
 // Routes
-app.get('/api/v1/health', (req, res) => res.status(200).json({ status: 'ok', message: 'Server is running' }));
+app.get('/api/v1/health', (_req: express.Request, res: express.Response) => res.status(200).json({ status: 'ok', message: 'Server is running' }));
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/incidents', incidentRoutes);
 app.use('/api/v1/requests', reliefRequestRoutes);
