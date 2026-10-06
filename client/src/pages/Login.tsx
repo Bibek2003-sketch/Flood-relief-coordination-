@@ -18,11 +18,6 @@ import {
 
 const DEMO_PRESETS = [
   {
-    label: 'Admin Command',
-    email: 'admin@floodrelief.demo',
-    color: 'border-red-500/30 bg-red-950/30 text-red-300 hover:border-red-500/60'
-  },
-  {
     label: 'Rescue Squad',
     email: 'rescue@floodrelief.demo',
     color: 'border-amber-500/30 bg-amber-950/30 text-amber-300 hover:border-amber-500/60'
@@ -230,7 +225,7 @@ const Login = () => {
             />
           </div>
           <div className="text-[10px] font-mono text-center text-slate-500">
-            Backend automatically resolves authorized roles from linked email.
+            Your role and permissions are securely determined by your account.
           </div>
         </div>
 
@@ -290,9 +285,9 @@ const Login = () => {
         <div className="pt-3 border-t border-slate-800/80">
           <div className="text-[11px] font-mono text-slate-400 mb-2 flex items-center gap-1.5">
             <KeyRound className="w-3 h-3 text-cyan-400" />
-            <span>Fast Demo Credentials (Role Determined by Backend):</span>
+            <span>Demo Access — Limited Permissions:</span>
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             {DEMO_PRESETS.map((p) => (
               <button
                 key={p.email}
@@ -304,6 +299,9 @@ const Login = () => {
                 <span className="text-[10px] text-slate-400 truncate block">{p.email}</span>
               </button>
             ))}
+          </div>
+          <div className="text-[10px] font-mono text-slate-500 text-center mt-2 leading-tight">
+            Demo accounts have limited permissions. Administrator access is privately provisioned.
           </div>
         </div>
 

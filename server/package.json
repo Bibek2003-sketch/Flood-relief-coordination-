@@ -8,6 +8,7 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "seed": "tsx src/utils/seed.ts",
+    "create-admin": "tsx scripts/createAdmin.ts",
     "verify-workflow": "tsx src/utils/simulate-workflow.ts",
     "test:features": "tsx src/utils/verify-features.ts",
     "test": "jest --detectOpenHandles --forceExit"
