@@ -36,6 +36,23 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
   const { user, token } = useAuth();
   const location = useLocation();
 
+  const normalizedRole = getNormalizedUserRole(user);
+  const hasAccess = !!(token && user && user.status === 'approved' && allowedRoles.includes(normalizedRole as any));
+
+  useEffect(() => {
+    if (token && user && user.status === 'approved' && !hasAccess) {
+      if (normalizedRole === 'citizen') {
+        toast.error('Access denied: Operational command portals require verified staff credentials.', {
+          id: 'role-restricted-toast'
+        });
+      } else {
+        toast.error(`Access restricted: You do not have permission to access that section. Redirected to your authorized ${normalizedRole.toUpperCase()} command dashboard.`, {
+          id: 'role-restricted-toast'
+        });
+      }
+    }
+  }, [hasAccess, normalizedRole, token, user]);
+
   if (!token || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -49,22 +66,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ allowedRoles }) 
     return <Navigate to="/login" state={{ error: 'Your account has been suspended. Please contact the administrator.' }} replace />;
   }
 
-  const normalizedRole = getNormalizedUserRole(user);
-  const hasAccess = allowedRoles.includes(normalizedRole as any);
-
-  useEffect(() => {
-    if (!hasAccess) {
-      if (normalizedRole === 'citizen') {
-        toast.error('Access denied: Operational command portals require verified staff credentials.', {
-          id: 'role-restricted-toast'
-        });
-      } else {
-        toast.error(`Access restricted: You do not have permission to access that section. Redirected to your authorized ${normalizedRole.toUpperCase()} command dashboard.`, {
-          id: 'role-restricted-toast'
-        });
-      }
-    }
-  }, [hasAccess, normalizedRole]);
+  if (user.status === 'rejected') {
+    return <Navigate to="/login" state={{ error: 'Your registration application was rejected.' }} replace />;
+  }
 
   if (!hasAccess) {
     const targetDashboard = getRoleHomeDashboard(normalizedRole);

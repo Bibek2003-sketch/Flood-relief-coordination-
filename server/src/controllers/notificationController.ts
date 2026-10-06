@@ -5,28 +5,31 @@ import { AuthRequest } from '../middleware/auth';
 export const getNotifications = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.user?._id;
-    const role = (req.user?.role || '').toLowerCase();
+    const roleRaw = req.user?.roleName || (typeof req.user?.role === 'string' ? req.user?.role : req.user?.role?.name) || '';
+    const role = String(roleRaw).toLowerCase();
     const normalizedRole = role.includes('admin') ? 'admin' :
       role.includes('rescue') ? 'rescue' :
       role.includes('volunteer') ? 'volunteer' :
       role.includes('ngo') ? 'ngo' : 'all';
 
-    const notifications = await Notification.find({
+    const queryFilter: any = {
       $or: [
-        { recipient: userId },
         { targetRole: normalizedRole },
         { targetRole: 'all' }
       ]
-    })
+    };
+
+    if (userId) {
+      queryFilter.$or.unshift({ recipient: userId });
+    }
+
+    const notifications = await Notification.find(queryFilter)
       .sort({ createdAt: -1 })
-      .limit(30);
+      .limit(30)
+      .lean();
 
     const unreadCount = await Notification.countDocuments({
-      $or: [
-        { recipient: userId },
-        { targetRole: normalizedRole },
-        { targetRole: 'all' }
-      ],
+      ...queryFilter,
       isRead: false
     });
 
