@@ -8,7 +8,11 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || (
 
 export const socket: Socket = io(SOCKET_URL, {
   autoConnect: true,
-  transports: ['websocket', 'polling']
+  transports: ['polling', 'websocket'],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 3000,
+  timeout: 10000
 });
 
 export default socket;
