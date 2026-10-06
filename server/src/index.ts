@@ -13,6 +13,14 @@ import reliefRequestRoutes from './routes/reliefRequestRoutes';
 import rescueRoutes from './routes/rescueRoutes';
 import shelterRoutes from './routes/shelterRoutes';
 import inventoryRoutes from './routes/inventoryRoutes';
+import emailRoutes from './routes/emailRoutes';
+import adminRoutes from './routes/adminRoutes';
+import volunteerRoutes from './routes/volunteerRoutes';
+import ngoRoutes from './routes/ngoRoutes';
+import notificationRoutes from './routes/notificationRoutes';
+import donationRoutes from './routes/donationRoutes';
+import medicalRoutes from './routes/medicalRoutes';
+import { ensureDemoRescueTeams } from './utils/rescueTeamSeeder';
 
 dotenv.config(); // Root .env
 
@@ -51,6 +59,13 @@ app.use('/api/v1/requests', reliefRequestRoutes);
 app.use('/api/v1/rescue', rescueRoutes);
 app.use('/api/v1/shelters', shelterRoutes);
 app.use('/api/v1/inventory', inventoryRoutes);
+app.use('/api/v1/emails', emailRoutes);
+app.use('/api/v1/admin', adminRoutes);
+app.use('/api/v1/volunteer', volunteerRoutes);
+app.use('/api/v1/ngo', ngoRoutes);
+app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/donations', donationRoutes);
+app.use('/api/v1/medical', medicalRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -60,6 +75,7 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
+    await ensureDemoRescueTeams();
     httpServer.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
@@ -70,3 +86,5 @@ const startServer = async () => {
 };
 
 startServer();
+
+export { app, httpServer };

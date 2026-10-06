@@ -9,6 +9,7 @@
     "start": "node dist/index.js",
     "seed": "tsx src/utils/seed.ts",
     "verify-workflow": "tsx src/utils/simulate-workflow.ts",
+    "test:features": "tsx src/utils/verify-features.ts",
     "test": "jest --detectOpenHandles --forceExit"
   },
   "dependencies": {
@@ -22,6 +23,7 @@
     "mongoose": "^8.7.0",
     "morgan": "^1.10.0",
     "multer": "^1.4.5-lts.1",
+    "nodemailer": "^10.0.14",
     "resend": "^6.32.0",
     "socket.io": "^4.7.5",
     "zod": "^3.23.8"
@@ -35,6 +37,7 @@
     "@types/morgan": "^1.9.9",
     "@types/multer": "^1.4.12",
     "@types/node": "^22.7.4",
+    "@types/nodemailer": "^8.0.2",
     "@types/supertest": "^6.0.2",
     "jest": "^29.7.0",
     "supertest": "^7.0.0",

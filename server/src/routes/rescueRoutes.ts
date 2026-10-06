@@ -3,15 +3,24 @@ import {
   getRescueOperations, 
   getMyRescueMissions, 
   createRescueOperation, 
-  updateRescueStatus 
+  updateRescueStatus,
+  updateMissionStatus,
+  getRescueStats
 } from '../controllers/rescueController';
 import { protect, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
-router.get('/', protect, authorize('Super Admin', 'Government/Admin Officer', 'NGO Coordinator'), getRescueOperations);
-router.get('/me', protect, authorize('Rescue Team'), getMyRescueMissions);
-router.post('/', protect, authorize('Super Admin', 'Government/Admin Officer', 'NGO Coordinator'), createRescueOperation);
-router.put('/:id', protect, authorize('Super Admin', 'Government/Admin Officer', 'Rescue Team'), updateRescueStatus);
+router.use(protect);
+
+// Mission routes for rescue teams
+router.get('/me', authorize('rescue', 'Rescue Team'), getMyRescueMissions);
+router.get('/stats', authorize('rescue', 'Rescue Team'), getRescueStats);
+router.patch('/missions/:id/status', authorize('rescue', 'Rescue Team'), updateMissionStatus);
+
+// Admin / coordinator routes
+router.get('/', authorize('admin', 'ngo', 'Super Admin', 'Government/Admin Officer', 'NGO Coordinator'), getRescueOperations);
+router.post('/', authorize('admin', 'ngo', 'Super Admin', 'Government/Admin Officer', 'NGO Coordinator'), createRescueOperation);
+router.put('/:id', authorize('admin', 'rescue', 'Super Admin', 'Government/Admin Officer', 'Rescue Team'), updateRescueStatus);
 
 export default router;

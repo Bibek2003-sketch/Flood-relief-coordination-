@@ -4,6 +4,42 @@
 
 @layer base {
   body {
-    @apply bg-gray-50 text-gray-900;
+    @apply bg-[#0b0f19] text-slate-100 antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  /* Custom Sleek Dark Command Center Scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #0f172a;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #334155;
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #0891b2;
+  }
+}
+
+/* Command Center Operations UI Components */
+@layer components {
+  .panel-surface {
+    @apply bg-[#0f172a] border border-slate-800/80 shadow-lg shadow-black/40;
+  }
+
+  .panel-surface-elevated {
+    @apply bg-[#131b2e] border border-slate-700/60 shadow-xl shadow-black/50;
+  }
+
+  .hud-glass {
+    @apply bg-slate-950/85 backdrop-blur-md border border-slate-700/50 shadow-2xl;
+  }
+
+  .beacon-dot-live {
+    @apply relative flex h-2.5 w-2.5;
   }
 }

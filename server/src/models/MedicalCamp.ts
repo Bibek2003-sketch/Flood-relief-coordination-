@@ -30,7 +30,7 @@ const medicalCampSchema = new Schema<IMedicalCamp>(
       enum: ['Normal', 'High Alert', 'Overwhelmed'],
       default: 'Normal',
     },
-    managerId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+    managerId: { type: Schema.Types.ObjectId, ref: 'User', required: false },
   },
   { timestamps: true }
 );

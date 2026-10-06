@@ -11,6 +11,21 @@ export const getShelters = async (req: Request, res: Response) => {
     if (womenFriendly === 'true') query['facilities.womenFriendly'] = true;
     if (medicalSupport === 'true') query['facilities.medicalSupport'] = true;
 
+    if (req.query.lat && req.query.lng) {
+      const lat = parseFloat(req.query.lat as string);
+      const lng = parseFloat(req.query.lng as string);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        query.coordinates = {
+          $near: {
+            $geometry: {
+              type: 'Point',
+              coordinates: [lng, lat]
+            }
+          }
+        };
+      }
+    }
+
     const shelters = await Shelter.find(query).populate('managerId', 'firstName lastName phone');
     
     res.json({ status: 'success', count: shelters.length, data: shelters });

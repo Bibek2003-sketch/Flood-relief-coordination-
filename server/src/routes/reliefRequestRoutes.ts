@@ -3,14 +3,22 @@ import {
   getRequests, 
   getMyRequests, 
   createRequest, 
-  updateRequestStatus 
+  updateRequestStatus,
+  trackRequest,
+  getPublicOverviewStats
 } from '../controllers/reliefRequestController';
 import { protect, authorize } from '../middleware/auth';
 
 const router = express.Router();
 
-// Get all requests (Admin, NGO, Rescue, Volunteer)
-router.get('/', protect, authorize('Super Admin', 'Government/Admin Officer', 'NGO Coordinator', 'Rescue Team', 'Volunteer'), getRequests);
+// Public emergency tracking route (Unauthenticated)
+router.get('/track/:requestId', trackRequest);
+
+// Public situational overview metrics (Unauthenticated)
+router.get('/overview', getPublicOverviewStats);
+
+// Get all requests (Public situational awareness & dashboard feed)
+router.get('/', getRequests);
 
 // Get citizen's own requests
 router.get('/me', protect, getMyRequests);
@@ -19,6 +27,6 @@ router.get('/me', protect, getMyRequests);
 router.post('/', createRequest);
 
 // Update status (Admin, NGO, Rescue, Volunteer)
-router.put('/:id/status', protect, authorize('Super Admin', 'Government/Admin Officer', 'NGO Coordinator', 'Rescue Team', 'Volunteer'), updateRequestStatus);
+router.put('/:id/status', protect, authorize('admin', 'rescue', 'volunteer', 'ngo', 'Super Admin', 'Government/Admin Officer', 'NGO Coordinator', 'Rescue Team', 'Volunteer'), updateRequestStatus);
 
 export default router;

@@ -10,6 +10,8 @@ export interface IInventoryItem extends Document {
   expiryDate?: Date;
   supplier?: string;
   batchNumber?: string;
+  organization?: mongoose.Types.ObjectId;
+  organizationName?: string;
 }
 
 const inventoryItemSchema = new Schema<IInventoryItem>(
@@ -27,6 +29,8 @@ const inventoryItemSchema = new Schema<IInventoryItem>(
     expiryDate: { type: Date },
     supplier: { type: String },
     batchNumber: { type: String },
+    organization: { type: Schema.Types.ObjectId, ref: 'User' },
+    organizationName: { type: String },
   },
   { timestamps: true }
 );
