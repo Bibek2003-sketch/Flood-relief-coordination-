@@ -27,7 +27,7 @@ import NgoDashboard from './pages/dashboards/NgoDashboard';
 const queryClient = new QueryClient();
 
 function App() {
-  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '477256145739-mo4vjua9jl9e8a7uvgk4n3k1v0l66onu.apps.googleusercontent.com';
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || '262394297962-70j0pthf0ieh04l4nvocmdmt3v980agt.apps.googleusercontent.com';
 
   return (
     <GoogleOAuthProvider clientId={googleClientId}>
