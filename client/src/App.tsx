@@ -17,6 +17,7 @@ import VolunteerRegistration from './pages/VolunteerRegistration';
 import Donation from './pages/Donation';
 import MedicalDashboard from './pages/MedicalDashboard';
 import LogoOptions from './pages/LogoOptions';
+import EmergencyContacts from './pages/EmergencyContacts';
 
 // Role Dashboards
 import AdminDashboard from './pages/dashboards/AdminDashboard';
@@ -56,7 +57,7 @@ function App() {
                 <Route path="track-emergency" element={<TrackEmergency />} />
                 <Route path="shelters" element={<SheltersFinder />} />
                 <Route path="find-shelter" element={<SheltersFinder />} />
-                <Route path="emergency-contacts" element={<Home />} />
+                <Route path="emergency-contacts" element={<EmergencyContacts />} />
                 <Route path="volunteer" element={<VolunteerRegistration />} />
                 <Route path="donate" element={<Donation />} />
                 <Route path="logos" element={<LogoOptions />} />

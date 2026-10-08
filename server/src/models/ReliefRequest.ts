@@ -29,6 +29,14 @@ export interface IReliefRequest extends Document {
   resolvedAt?: Date;
   notes?: string;
   incidentId?: mongoose.Types.ObjectId;
+  timeline?: Array<{
+    status: string;
+    title?: string;
+    note?: string;
+    timestamp: Date;
+    updatedBy?: mongoose.Types.ObjectId;
+    updatedByName?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -76,6 +84,14 @@ const reliefRequestSchema = new Schema<IReliefRequest>(
     resolvedAt: { type: Date },
     notes: { type: String },
     incidentId: { type: Schema.Types.ObjectId, ref: 'FloodIncident' },
+    timeline: [{
+      status: { type: String, required: true },
+      title: { type: String },
+      note: { type: String },
+      timestamp: { type: Date, default: Date.now },
+      updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      updatedByName: { type: String }
+    }]
   },
   { 
     timestamps: true,
@@ -102,6 +118,16 @@ reliefRequestSchema.pre('save', function(next) {
       this.priority = 'Critical';
     } else if (this.numberOfChildren > 2 || this.numberOfPeople > 10) {
       this.priority = 'High';
+    }
+
+    // Initialize first timeline entry
+    if (!this.timeline || this.timeline.length === 0) {
+      this.timeline = [{
+        status: 'SUBMITTED',
+        title: 'Emergency Distress Call Logged',
+        note: `Initial SOS report submitted for ${this.numberOfPeople} people. Auto-priority set to ${this.priority}.`,
+        timestamp: new Date()
+      }];
     }
   }
   next();

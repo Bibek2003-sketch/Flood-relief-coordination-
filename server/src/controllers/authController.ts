@@ -401,8 +401,22 @@ export const googleAuth = async (req: Request, res: Response, next: NextFunction
       // payload parsing error
     }
 
+    // If token is an access_token (from custom Google popup login)
     if (!payload || !payload.email) {
-      res.status(400).json({ success: false, error: 'Invalid Google token' });
+      try {
+        const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (userInfoRes.ok) {
+          payload = await userInfoRes.json();
+        }
+      } catch (e) {
+        // network fetch error
+      }
+    }
+
+    if (!payload || !payload.email) {
+      res.status(400).json({ success: false, error: 'Invalid Google authentication token' });
       return;
     }
 

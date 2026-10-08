@@ -58,8 +58,9 @@ const Layout = () => {
               {[
                 { name: 'Track SOS', path: '/track-emergency' },
                 { name: 'Find Shelters', path: '/shelters' },
+                { name: 'Emergency Contacts', path: '/emergency-contacts' },
                 { name: 'Join Volunteer', path: '/volunteer' },
-                { name: 'Donate Supplies', path: '/donate' }
+                { name: 'Donate Aid', path: '/donate' }
               ].map((link) => (
                 <Link 
                   key={link.name}
@@ -123,6 +124,7 @@ const Layout = () => {
             {[
               { name: 'Track SOS Status', path: '/track-emergency' },
               { name: 'Find Shelters', path: '/shelters' },
+              { name: 'Emergency Contacts', path: '/emergency-contacts' },
               { name: 'Join Volunteer Network', path: '/volunteer' },
               { name: 'Donate Supplies & Funds', path: '/donate' }
             ].map((link) => (

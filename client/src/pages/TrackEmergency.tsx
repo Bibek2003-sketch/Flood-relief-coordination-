@@ -24,6 +24,13 @@ interface TrackData {
   updatedAt: string;
   assignedTeamName?: string;
   steps: Step[];
+  timeline?: Array<{
+    status: string;
+    title?: string;
+    note?: string;
+    timestamp: string;
+    updatedByName?: string;
+  }>;
 }
 
 const TrackEmergency: React.FC = () => {
@@ -262,6 +269,34 @@ const TrackEmergency: React.FC = () => {
                 })}
               </div>
             </div>
+
+            {/* Historical Timestamped Activity Log */}
+            {data.timeline && data.timeline.length > 0 && (
+              <div className="pt-4 border-t border-slate-800 space-y-3">
+                <div className="text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Verified Operational Dispatch Log</span>
+                </div>
+                <div className="space-y-2 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+                  {data.timeline.map((event, idx) => (
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs border-b border-slate-800/60 pb-2 last:border-0 last:pb-0">
+                      <div>
+                        <span className="font-bold text-white font-mono">{event.title || event.status}</span>
+                        {event.note && <span className="text-slate-400 block text-[11px] mt-0.5">{event.note}</span>}
+                      </div>
+                      <div className="text-[10px] font-mono text-cyan-400/80 shrink-0">
+                        {new Date(event.timestamp).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Assigned Details */}
             {data.assignedTeamName && (

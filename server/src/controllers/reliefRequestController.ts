@@ -4,6 +4,7 @@ import ReliefRequest from '../models/ReliefRequest';
 import Shelter from '../models/Shelter';
 import User from '../models/User';
 import RescueTeam from '../models/RescueTeam';
+import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middleware/auth';
 import { sendEmail } from '../utils/emailService';
 
@@ -205,7 +206,8 @@ export const trackRequest = async (req: Request, res: Response): Promise<void> =
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       assignedTeamName: ['ASSIGNED', 'RESCUE_IN_PROGRESS', 'RESOLVED'].includes(currentStatus) ? assignedTeamName : undefined,
-      steps
+      steps,
+      timeline: request.timeline || []
     };
 
     res.status(200).json({
@@ -248,6 +250,34 @@ export const updateRequestStatus = async (req: AuthRequest, res: Response) => {
     }
     if (status === 'ASSIGNED' || assignedTeam) {
       request.assignedAt = new Date();
+    }
+
+    // Append to timeline
+    if (status) {
+      if (!request.timeline) request.timeline = [];
+      const userDisplayName = req.user ? `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email : 'Operations Coordinator';
+      request.timeline.push({
+        status,
+        title: `Status Transition: ${status.replace(/_/g, ' ')}`,
+        note: req.body.notes || `Emergency updated to ${status}`,
+        timestamp: new Date(),
+        updatedBy: req.user?._id,
+        updatedByName: userDisplayName
+      });
+
+      // Audit Log
+      await AuditLog.create({
+        action: `REQUEST_STATUS_${status}`,
+        performedBy: req.user?._id,
+        performedByName: userDisplayName,
+        targetId: request._id.toString(),
+        targetType: 'ReliefRequest',
+        details: {
+          requestId: request.requestID,
+          newStatus: status,
+          priority: request.priority
+        }
+      });
     }
 
     await request.save();

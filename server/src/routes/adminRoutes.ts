@@ -8,7 +8,8 @@ import {
   updateEmergencyStatus,
   getOperationalUsers,
   updateUserStatus,
-  getRescueTeams
+  getRescueTeams,
+  getAuditLogs
 } from '../controllers/adminController';
 import { protect, authorize } from '../middleware/auth';
 
@@ -28,5 +29,6 @@ router.patch('/emergencies/:id/status', updateEmergencyStatus);
 
 router.get('/users', getOperationalUsers);
 router.patch('/users/:id/status', updateUserStatus);
+router.get('/audit-logs', getAuditLogs);
 
 export default router;

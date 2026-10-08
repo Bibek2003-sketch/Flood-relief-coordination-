@@ -203,6 +203,16 @@ export const assignRescueTeam = async (req: AuthRequest, res: Response) => {
     if (priority) {
       emergency.priority = priority;
     }
+    if (!emergency.timeline) emergency.timeline = [];
+    const coordinatorName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Operations HQ';
+    emergency.timeline.push({
+      status: 'ASSIGNED',
+      title: `Rescue Squad Assigned: ${teamDisplayName}`,
+      note: `Unit dispatched to ${emergency.location}. Operational priority: ${emergency.priority}.`,
+      timestamp: new Date(),
+      updatedBy: req.user?._id,
+      updatedByName: coordinatorName
+    });
     await emergency.save();
 
     // 6. Update RescueTeam status to ON_MISSION
@@ -284,7 +294,32 @@ export const verifyEmergency = async (req: AuthRequest, res: Response) => {
     if (priority) emergency.priority = priority;
     if (notes) emergency.notes = notes;
 
+    if (!emergency.timeline) emergency.timeline = [];
+    const coordinatorName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Operations HQ';
+    emergency.timeline.push({
+      status: emergency.status,
+      title: verified ? 'Emergency Distress Verified' : 'Emergency Report Rejected',
+      note: notes || (verified ? `Field report verified for dispatch. Priority: ${emergency.priority}` : 'Report marked as invalid/duplicate'),
+      timestamp: new Date(),
+      updatedBy: req.user?._id,
+      updatedByName: coordinatorName
+    });
+
     await emergency.save();
+
+    await AuditLog.create({
+      action: verified ? 'VERIFY_EMERGENCY' : 'REJECT_EMERGENCY',
+      performedBy: req.user?._id,
+      performedByName: coordinatorName,
+      targetId: emergency._id.toString(),
+      targetType: 'ReliefRequest',
+      details: {
+        requestId: emergency.requestID,
+        status: emergency.status,
+        priority: emergency.priority,
+        notes
+      }
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -293,6 +328,7 @@ export const verifyEmergency = async (req: AuthRequest, res: Response) => {
         status: emergency.status,
         priority: emergency.priority
       });
+      io.emit('request-updated', emergency);
     }
 
     res.status(200).json({
@@ -315,8 +351,34 @@ export const updateEmergencyPriority = async (req: AuthRequest, res: Response) =
       return res.status(404).json({ success: false, message: 'Emergency not found' });
     }
 
+    const oldPriority = emergency.priority;
     emergency.priority = priority;
+
+    if (!emergency.timeline) emergency.timeline = [];
+    const coordinatorName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Operations HQ';
+    emergency.timeline.push({
+      status: emergency.status,
+      title: `Priority Escalation: ${priority.toUpperCase()}`,
+      note: `Priority changed from ${oldPriority} to ${priority} by operations command`,
+      timestamp: new Date(),
+      updatedBy: req.user?._id,
+      updatedByName: coordinatorName
+    });
+
     await emergency.save();
+
+    await AuditLog.create({
+      action: 'UPDATE_PRIORITY',
+      performedBy: req.user?._id,
+      performedByName: coordinatorName,
+      targetId: emergency._id.toString(),
+      targetType: 'ReliefRequest',
+      details: {
+        requestId: emergency.requestID,
+        oldPriority,
+        newPriority: priority
+      }
+    });
 
     const io = req.app.get('io');
     if (io) {
@@ -325,6 +387,7 @@ export const updateEmergencyPriority = async (req: AuthRequest, res: Response) =
         status: emergency.status,
         priority: emergency.priority
       });
+      io.emit('request-updated', emergency);
     }
 
     res.status(200).json({ success: true, data: emergency });
@@ -359,6 +422,18 @@ export const updateEmergencyStatus = async (req: AuthRequest, res: Response) => 
         }
       }
     }
+
+    if (!emergency.timeline) emergency.timeline = [];
+    const coordinatorName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Operations HQ';
+    emergency.timeline.push({
+      status,
+      title: `Operational Transition: ${status.replace(/_/g, ' ')}`,
+      note: notes || `Status updated to ${status} by disaster command officer`,
+      timestamp: new Date(),
+      updatedBy: req.user?._id,
+      updatedByName: coordinatorName
+    });
+
     await emergency.save();
 
     await AuditLog.create({
@@ -445,10 +520,44 @@ export const updateUserStatus = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
 
+    const coordinatorName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Operations HQ';
+    await AuditLog.create({
+      action: `USER_STATUS_${status.toUpperCase()}`,
+      performedBy: req.user?._id,
+      performedByName: coordinatorName,
+      targetId: user._id.toString(),
+      targetType: 'User',
+      details: {
+        userId: user._id,
+        userEmail: user.email,
+        userName: `${user.firstName} ${user.lastName}`,
+        role: user.roleName || user.role,
+        newStatus: status
+      }
+    });
+
     res.status(200).json({
       success: true,
       message: `User status updated to ${status}`,
       data: user
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const getAuditLogs = async (req: AuthRequest, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 50;
+    const logs = await AuditLog.find()
+      .populate('performedBy', 'firstName lastName email role')
+      .sort({ createdAt: -1 })
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: logs.length,
+      data: logs
     });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });

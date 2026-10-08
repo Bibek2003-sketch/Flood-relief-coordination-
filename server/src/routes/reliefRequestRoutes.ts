@@ -17,8 +17,8 @@ router.get('/track/:requestId', trackRequest);
 // Public situational overview metrics (Unauthenticated)
 router.get('/overview', getPublicOverviewStats);
 
-// Get all requests (Public situational awareness & dashboard feed)
-router.get('/', getRequests);
+// Get all requests (Protected: Authorized Operational Roles Only)
+router.get('/', protect, authorize('admin', 'rescue', 'volunteer', 'ngo', 'Super Admin'), getRequests);
 
 // Get citizen's own requests
 router.get('/me', protect, getMyRequests);

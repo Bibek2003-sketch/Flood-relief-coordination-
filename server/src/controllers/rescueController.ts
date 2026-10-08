@@ -104,6 +104,17 @@ export const updateMissionStatus = async (req: AuthRequest, res: Response) => {
         }
       }
 
+      if (!emergency.timeline) emergency.timeline = [];
+      const rescueAgentName = `${req.user?.firstName || ''} ${req.user?.lastName || ''}`.trim() || req.user?.email || 'Field Rescue Unit';
+      emergency.timeline.push({
+        status,
+        title: `Rescue Mission: ${status.replace(/_/g, ' ')}`,
+        note: notes || (peopleRescued ? `Evacuated ${peopleRescued} people.` : `Mission status marked as ${status}`),
+        timestamp: new Date(),
+        updatedBy: userId,
+        updatedByName: rescueAgentName
+      });
+
       await emergency.save();
 
       // Create Audit Log

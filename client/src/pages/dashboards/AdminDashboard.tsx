@@ -17,7 +17,9 @@ import {
   RefreshCw,
   ExternalLink,
   ChevronRight,
-  Filter
+  Filter,
+  UserCheck,
+  FileText
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { socket } from '../../utils/socket';
@@ -91,6 +93,9 @@ const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [emergencies, setEmergencies] = useState<Emergency[]>([]);
   const [rescueTeams, setRescueTeams] = useState<RescueTeam[]>([]);
+  const [operationalUsers, setOperationalUsers] = useState<any[]>([]);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [activeSubTab, setActiveSubTab] = useState<'emergencies' | 'users' | 'audit'>('emergencies');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -111,21 +116,27 @@ const AdminDashboard: React.FC = () => {
       const headers = { Authorization: `Bearer ${token}` };
       const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
 
-      const [statsRes, emergRes, teamsRes] = await Promise.all([
+      const [statsRes, emergRes, teamsRes, usersRes, logsRes] = await Promise.all([
         fetch(`${baseUrl}/admin/stats`, { headers }),
         fetch(`${baseUrl}/admin/emergencies?status=${statusFilter}&priority=${priorityFilter}&search=${searchQuery}`, { headers }),
-        fetch(`${baseUrl}/admin/rescue-teams?availableOnly=true`, { headers })
+        fetch(`${baseUrl}/admin/rescue-teams?availableOnly=true`, { headers }),
+        fetch(`${baseUrl}/admin/users`, { headers }),
+        fetch(`${baseUrl}/admin/audit-logs`, { headers })
       ]);
 
-      const [statsData, emergData, teamsData] = await Promise.all([
+      const [statsData, emergData, teamsData, usersData, logsData] = await Promise.all([
         statsRes.json(),
         emergRes.json(),
-        teamsRes.json()
+        teamsRes.json(),
+        usersRes.json(),
+        logsRes.json()
       ]);
 
       if (statsData.success) setStats(statsData.data);
       if (emergData.success) setEmergencies(emergData.data);
       if (teamsData.success) setRescueTeams(teamsData.data || []);
+      if (usersData.success) setOperationalUsers(usersData.data || []);
+      if (logsData.success) setAuditLogs(logsData.data || []);
     } catch (err) {
       console.error(err);
       toast.error('Failed to load command center telemetry');
@@ -250,6 +261,28 @@ const AdminDashboard: React.FC = () => {
       }
     } catch (e) {
       toast.error('Network error updating priority');
+    }
+  };
+
+  const handleUserStatusChange = async (userId: string, newStatus: string) => {
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/admin/users/${userId}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success(`Account marked as ${newStatus}`);
+        fetchDashboardData();
+      } else {
+        toast.error(data.message || 'Failed to update user status');
+      }
+    } catch (e) {
+      toast.error('Network error updating account status');
     }
   };
 
@@ -425,7 +458,47 @@ const AdminDashboard: React.FC = () => {
         </div>
       </div>
 
+      {/* Sub-workspace Navigation Switcher */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3 pt-2">
+        <button
+          onClick={() => setActiveSubTab('emergencies')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'emergencies'
+              ? 'bg-red-600 text-white shadow-lg shadow-red-950/80 border border-red-500'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
+          }`}
+        >
+          <AlertTriangle className="w-3.5 h-3.5" />
+          <span>SOS Emergencies ({emergencies.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('users')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'users'
+              ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-950/80 border border-cyan-500'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
+          }`}
+        >
+          <UserCheck className="w-3.5 h-3.5" />
+          <span>Personnel & Approvals ({operationalUsers.length})</span>
+        </button>
+
+        <button
+          onClick={() => setActiveSubTab('audit')}
+          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+            activeSubTab === 'audit'
+              ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/80 border border-purple-500'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Mission Audit Logs ({auditLogs.length})</span>
+        </button>
+      </div>
+
       {/* Emergency Management Section */}
+      {activeSubTab === 'emergencies' && (
       <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div>
@@ -572,6 +645,210 @@ const AdminDashboard: React.FC = () => {
           </table>
         </div>
       </div>
+      )}
+
+      {/* Operational Personnel & Applications Section */}
+      {activeSubTab === 'users' && (
+        <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <UserCheck className="w-5 h-5 text-cyan-400" />
+                <span>Operational Personnel & Organization Onboarding</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Review pending applications for field volunteers, relief NGOs, and tactical rescue squads. Grant, reject, or suspend access.
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400">
+                  <th className="py-3 px-4">Applicant / Member</th>
+                  <th className="py-3 px-4">Role</th>
+                  <th className="py-3 px-4">Organization / Location</th>
+                  <th className="py-3 px-4">Contact</th>
+                  <th className="py-3 px-4">Status</th>
+                  <th className="py-3 px-4 text-right">Review Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 font-mono">
+                {operationalUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="py-8 text-center text-slate-500">
+                      No operational personnel found.
+                    </td>
+                  </tr>
+                ) : (
+                  operationalUsers.map((u) => {
+                    const canonicalRole = (u.roleName || (typeof u.role === 'string' ? u.role : u.role?.name) || 'volunteer').toLowerCase();
+                    return (
+                      <tr key={u._id} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3 px-4">
+                          <span className="font-bold text-white block">{u.firstName} {u.lastName}</span>
+                          <span className="text-[10px] text-slate-400 block">{u.email}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold border ${
+                            canonicalRole === 'rescue'
+                              ? 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                              : canonicalRole === 'ngo'
+                              ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+                              : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                          }`}>
+                            {canonicalRole}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-slate-300">
+                          {u.organization || '—'}
+                          {u.skills && u.skills.length > 0 && (
+                            <span className="text-[10px] text-slate-500 block truncate max-w-xs">
+                              Skills: {u.skills.join(', ')}
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-slate-300">
+                          {u.contactNumber || '—'}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] uppercase font-bold ${
+                            u.status === 'approved'
+                              ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                              : u.status === 'pending'
+                              ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse'
+                              : u.status === 'suspended'
+                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                              : 'bg-slate-800 text-slate-400'
+                          }`}>
+                            {u.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            {u.status === 'pending' && (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUserStatusChange(u._id, 'approved')}
+                                  className="px-2.5 py-1 bg-emerald-600/30 hover:bg-emerald-600/50 text-emerald-300 border border-emerald-500/40 rounded text-[11px] font-bold transition-all"
+                                >
+                                  Approve
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleUserStatusChange(u._id, 'rejected')}
+                                  className="px-2.5 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/40 rounded text-[11px] font-bold transition-all"
+                                >
+                                  Reject
+                                </button>
+                              </>
+                            )}
+                            {u.status === 'approved' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUserStatusChange(u._id, 'suspended')}
+                                className="px-2.5 py-1 bg-amber-600/20 hover:bg-amber-600/40 text-amber-300 border border-amber-500/30 rounded text-[11px] font-bold transition-all"
+                              >
+                                Suspend
+                              </button>
+                            )}
+                            {u.status === 'suspended' && (
+                              <button
+                                type="button"
+                                onClick={() => handleUserStatusChange(u._id, 'approved')}
+                                className="px-2.5 py-1 bg-cyan-600/30 hover:bg-cyan-600/50 text-cyan-300 border border-cyan-500/40 rounded text-[11px] font-bold transition-all"
+                              >
+                                Reactivate
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Mission Audit Logs Section */}
+      {activeSubTab === 'audit' && (
+        <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+            <div>
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <FileText className="w-5 h-5 text-purple-400" />
+                <span>Centralized Operations Audit Trail</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                Immutable chronological log of all emergency verifications, squad dispatches, status transitions, and user permission updates.
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-slate-800">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono uppercase text-slate-400">
+                  <th className="py-3 px-4">Timestamp</th>
+                  <th className="py-3 px-4">Action</th>
+                  <th className="py-3 px-4">Performed By</th>
+                  <th className="py-3 px-4">Target Type</th>
+                  <th className="py-3 px-4">Operation Details</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80 font-mono">
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-slate-500">
+                      No audit events recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  auditLogs.map((log) => (
+                    <tr key={log._id} className="hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          second: '2-digit'
+                        })}
+                      </td>
+                      <td className="py-3 px-4">
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                          {log.action}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-white">
+                        {log.performedByName || 'System / Officer'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-400">
+                        {log.targetType || 'ReliefRequest'}
+                      </td>
+                      <td className="py-3 px-4 text-slate-300 max-w-md truncate">
+                        {log.details ? (
+                          <span className="text-[11px] text-slate-400">
+                            {log.details.emergencyId ? `Incident: ${log.details.emergencyId} ` : ''}
+                            {log.details.newStatus ? `Status: ${log.details.newStatus} ` : ''}
+                            {log.details.teamName ? `Team: ${log.details.teamName} ` : ''}
+                            {log.details.notes ? `Notes: ${log.details.notes}` : ''}
+                          </span>
+                        ) : '—'}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Emergency Detail & Management Modal */}
       {selectedEmergency && (
