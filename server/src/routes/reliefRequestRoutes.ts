@@ -12,9 +12,11 @@ import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
 
+const isDev = process.env.NODE_ENV !== 'production';
+
 const emergencyReportLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // Max 20 submissions per IP per 15 min window
+  max: isDev ? 200 : 20, // Max submissions per IP
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -25,7 +27,7 @@ const emergencyReportLimiter = rateLimit({
 
 const emergencyTrackLimiter = rateLimit({
   windowMs: 10 * 60 * 1000, // 10 minutes
-  max: 60, // Max 60 tracking queries per IP per 10 min window (allows auto-refresh while blocking brute-force)
+  max: isDev ? 1000 : 200, // Generous tracking queries to prevent false 429 lockouts during live monitoring
   standardHeaders: true,
   legacyHeaders: false,
   message: {

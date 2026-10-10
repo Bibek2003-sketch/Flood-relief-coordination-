@@ -249,8 +249,11 @@ const Donation = () => {
                         type="number"
                         min="1"
                         required
-                        value={supplyQuantity}
-                        onChange={e => setSupplyQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        value={isNaN(supplyQuantity) ? '' : supplyQuantity}
+                        onChange={e => {
+                          const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                          setSupplyQuantity(isNaN(val) ? 1 : Math.max(1, val));
+                        }}
                         className="w-full px-3.5 py-2.5 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-amber-500 focus:border-amber-500 text-white text-sm font-mono transition-all"
                       />
                     </div>

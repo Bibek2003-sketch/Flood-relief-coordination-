@@ -393,7 +393,11 @@ const EmergencyReport = () => {
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1">Total People</label>
                 <input 
                   type="number" min="1" required
-                  value={formData.people} onChange={e => setFormData({...formData, people: parseInt(e.target.value)})}
+                  value={isNaN(formData.people) ? '' : formData.people} 
+                  onChange={e => {
+                    const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                    setFormData({...formData, people: isNaN(val) ? 1 : val});
+                  }}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-red-500 focus:border-red-500 text-white font-mono text-sm"
                 />
               </div>
@@ -401,7 +405,11 @@ const EmergencyReport = () => {
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1">Children</label>
                 <input 
                   type="number" min="0"
-                  value={formData.children} onChange={e => setFormData({...formData, children: parseInt(e.target.value)})}
+                  value={isNaN(formData.children) ? '' : formData.children} 
+                  onChange={e => {
+                    const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                    setFormData({...formData, children: isNaN(val) ? 0 : val});
+                  }}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-red-500 focus:border-red-500 text-white font-mono text-sm"
                 />
               </div>
@@ -409,7 +417,11 @@ const EmergencyReport = () => {
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1">Elderly</label>
                 <input 
                   type="number" min="0"
-                  value={formData.elderly} onChange={e => setFormData({...formData, elderly: parseInt(e.target.value)})}
+                  value={isNaN(formData.elderly) ? '' : formData.elderly} 
+                  onChange={e => {
+                    const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                    setFormData({...formData, elderly: isNaN(val) ? 0 : val});
+                  }}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-red-500 focus:border-red-500 text-white font-mono text-sm"
                 />
               </div>
@@ -417,7 +429,11 @@ const EmergencyReport = () => {
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1">Disabled</label>
                 <input 
                   type="number" min="0"
-                  value={formData.disabled} onChange={e => setFormData({...formData, disabled: parseInt(e.target.value)})}
+                  value={isNaN(formData.disabled) ? '' : formData.disabled} 
+                  onChange={e => {
+                    const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                    setFormData({...formData, disabled: isNaN(val) ? 0 : val});
+                  }}
                   className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-red-500 focus:border-red-500 text-white font-mono text-sm"
                 />
               </div>

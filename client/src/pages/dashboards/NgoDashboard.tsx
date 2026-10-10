@@ -392,8 +392,11 @@ const NgoDashboard: React.FC = () => {
                     type="number"
                     min="0"
                     required
-                    value={itemForm.quantity}
-                    onChange={(e) => setItemForm({ ...itemForm, quantity: parseInt(e.target.value) || 0 })}
+                    value={isNaN(itemForm.quantity) ? '' : itemForm.quantity}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                      setItemForm({ ...itemForm, quantity: isNaN(val) ? 0 : val });
+                    }}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -404,8 +407,11 @@ const NgoDashboard: React.FC = () => {
                     type="number"
                     min="0"
                     required
-                    value={itemForm.minimumStock}
-                    onChange={(e) => setItemForm({ ...itemForm, minimumStock: parseInt(e.target.value) || 0 })}
+                    value={isNaN(itemForm.minimumStock) ? '' : itemForm.minimumStock}
+                    onChange={(e) => {
+                      const val = e.target.value === '' ? 0 : parseInt(e.target.value, 10);
+                      setItemForm({ ...itemForm, minimumStock: isNaN(val) ? 0 : val });
+                    }}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>

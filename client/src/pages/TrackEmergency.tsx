@@ -54,6 +54,14 @@ const TrackEmergency: React.FC = () => {
     try {
       const formatted = idToQuery.trim();
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/requests/track/${formatted}`);
+      
+      if (res.status === 429) {
+        if (showLoading) {
+          toast.error('Too many requests. Please wait a moment before trying again.', { id: 'rate-limit' });
+        }
+        return;
+      }
+
       const json = await res.json();
 
       if (json.success && json.data) {
@@ -93,10 +101,10 @@ const TrackEmergency: React.FC = () => {
     const activeId = data?.requestId || requestIdInput;
     if (!activeId) return;
 
-    // 1. Polling interval every 3 seconds for instant updates
+    // 1. Polling interval every 20 seconds as a reliable background heartbeat for WebSockets
     const interval = setInterval(() => {
       fetchStatus(activeId, false);
-    }, 3000);
+    }, 20000);
 
     // 2. Real-time WebSocket event
     const handleStatusUpdate = (ev: any) => {
@@ -142,9 +150,23 @@ const TrackEmergency: React.FC = () => {
             <ArrowLeft className="w-4 h-4" />
             <span>Submit New Emergency Report</span>
           </Link>
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-[11px] font-mono text-cyan-400">
-            <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-            <span>PUBLIC STATUS FEED</span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const activeId = data?.requestId || requestIdInput;
+                if (activeId) fetchStatus(activeId, true);
+              }}
+              disabled={loading || refreshing}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-[11px] font-mono text-slate-300 transition-colors disabled:opacity-50"
+              title="Refresh status"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-cyan-400 ${refreshing ? 'animate-spin' : ''}`} />
+              <span>{refreshing ? 'Updating...' : 'Refresh'}</span>
+            </button>
+            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-cyan-500/10 border border-cyan-500/20 rounded-full text-[11px] font-mono text-cyan-400">
+              <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+              <span>LIVE FEED</span>
+            </div>
           </div>
         </div>
 

@@ -399,8 +399,11 @@ const MedicalDashboard = () => {
                   <input
                     type="number"
                     min="1"
-                    value={campForm.doctorsAvailable}
-                    onChange={e => setCampForm({ ...campForm, doctorsAvailable: parseInt(e.target.value) || 1 })}
+                    value={isNaN(campForm.doctorsAvailable) ? '' : campForm.doctorsAvailable}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                      setCampForm({ ...campForm, doctorsAvailable: isNaN(val) ? 1 : val });
+                    }}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 text-white text-xs font-mono"
                   />
                 </div>
@@ -409,8 +412,11 @@ const MedicalDashboard = () => {
                   <input
                     type="number"
                     min="1"
-                    value={campForm.capacity}
-                    onChange={e => setCampForm({ ...campForm, capacity: parseInt(e.target.value) || 1 })}
+                    value={isNaN(campForm.capacity) ? '' : campForm.capacity}
+                    onChange={e => {
+                      const val = e.target.value === '' ? 1 : parseInt(e.target.value, 10);
+                      setCampForm({ ...campForm, capacity: isNaN(val) ? 1 : val });
+                    }}
                     className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 text-white text-xs font-mono"
                   />
                 </div>
