@@ -18,6 +18,7 @@ import {
   Radio
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import logoImg from '../../assets/logo.jpg';
 
 interface DashboardLayoutProps {
   children?: React.ReactNode;
@@ -112,13 +113,11 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         return [
           { name: 'Assigned Missions', path: '/rescue/dashboard', icon: LifeBuoy },
           { name: 'Relief Shelters', path: '/shelters', icon: MapPin },
-          { name: 'Public SOS Feed', path: '/track-emergency', icon: Radio },
         ];
       case 'volunteer':
         return [
           { name: 'Volunteer Task Board', path: '/volunteer/dashboard', icon: Users },
           { name: 'Relief Camps', path: '/shelters', icon: MapPin },
-          { name: 'Emergency Contacts', path: '/', icon: Home },
         ];
       case 'ngo':
         return [
@@ -139,8 +138,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
       {/* Sidebar for Desktop */}
       <aside className="hidden md:flex md:w-64 flex-col bg-[#0f172a] border-r border-slate-800 shrink-0">
         <div className="p-5 border-b border-slate-800 flex items-center gap-3">
-          <div className="bg-slate-900 p-2 rounded-xl border border-slate-700/80 shadow-md">
-            <img src="/logo.jpg" alt="FloodRelief" className="h-8 w-8 object-cover rounded-lg" />
+          <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-700/80 shadow-md w-11 h-11 shrink-0 flex items-center justify-center overflow-hidden">
+            <img src={logoImg} alt="FloodRelief" className="w-full h-full object-cover rounded-lg" />
           </div>
           <div>
             <div className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase font-bold">
@@ -226,14 +225,6 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </div>
 
           <div className="flex items-center gap-3">
-            <Link
-              to="/track-emergency"
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-700/80 rounded-lg text-xs font-mono text-cyan-400 transition-colors"
-            >
-              <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
-              <span>Track SOS</span>
-            </Link>
-
             <div className="relative">
               <div className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200">
                 <Bell className="w-4 h-4" />
@@ -291,8 +282,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({
         )}
 
         {/* Dashboard Page Body */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-7xl mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto p-2.5 sm:p-6 lg:p-8">
+          <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
             {/* Header Banner */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-slate-800">
               <div>

@@ -7,6 +7,7 @@ import RescueTeam from '../models/RescueTeam';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middleware/auth';
 import { sendEmail } from '../utils/emailService';
+import { triggerEmergencySms } from '../services/sms/smsTriggerHelper';
 
 export const getPublicOverviewStats = async (req: Request, res: Response) => {
   try {
@@ -79,7 +80,16 @@ export const createRequest = async (req: AuthRequest, res: Response) => {
     }
     req.body.submittedBy = req.user?._id;
     
+    // Validate preferredLanguage for SMS notifications
+    const validLanguages = ['en', 'as', 'hi', 'bn', 'br'];
+    req.body.preferredLanguage = validLanguages.includes(req.body.preferredLanguage) 
+      ? req.body.preferredLanguage 
+      : 'en';
+
     const request = await ReliefRequest.create(req.body);
+
+    // Trigger Outbound Multilingual SMS Acknowledgement
+    triggerEmergencySms(request, 'EMERGENCY_REPORT_RECEIVED');
     
     const io = req.app.get('io');
     if (io) {
@@ -196,18 +206,26 @@ export const trackRequest = async (req: Request, res: Response): Promise<void> =
       (request.assignedTo as any)?.organization ||
       'Disaster Quick Response Squad';
 
+    // Safe sanitized public timeline (hide internal coordinator IDs and sensitive operational notes)
+    const sanitizedTimeline = (request.timeline || []).map(entry => ({
+      status: entry.status,
+      title: entry.title || `Status updated to ${entry.status}`,
+      note: entry.note || undefined,
+      timestamp: entry.timestamp
+    }));
+
     const safePublicData = {
       requestId: request.requestID,
       status: currentStatus,
       priority: request.priority,
       categories: request.requestCategory,
       numberOfPeople: request.numberOfPeople,
-      locationArea: request.location ? request.location.split(',').slice(0, 2).join(', ') : 'Guwahati Metropolitan',
+      locationArea: request.location ? request.location.split(',').slice(0, 2).join(', ') : 'Guwahati Metropolitan Area',
       createdAt: request.createdAt,
       updatedAt: request.updatedAt,
       assignedTeamName: ['ASSIGNED', 'RESCUE_IN_PROGRESS', 'RESOLVED'].includes(currentStatus) ? assignedTeamName : undefined,
       steps,
-      timeline: request.timeline || []
+      timeline: sanitizedTimeline
     };
 
     res.status(200).json({
@@ -281,6 +299,23 @@ export const updateRequestStatus = async (req: AuthRequest, res: Response) => {
     }
 
     await request.save();
+
+    // Trigger Outbound Multilingual SMS for relevant lifecycle transitions
+    if (status) {
+      let smsEvent: any = null;
+      const upperStatus = status.toUpperCase().replace(/\s+/g, '_');
+      if (upperStatus === 'UNDER_REVIEW') smsEvent = 'EMERGENCY_UNDER_REVIEW';
+      else if (upperStatus === 'VERIFIED') smsEvent = 'EMERGENCY_VERIFIED';
+      else if (upperStatus === 'ASSIGNED') smsEvent = 'RESCUE_TEAM_ASSIGNED';
+      else if (upperStatus === 'RESCUE_IN_PROGRESS' || upperStatus === 'IN_PROGRESS') smsEvent = 'RESCUE_OPERATION_STARTED';
+      else if (upperStatus === 'RESOLVED' || upperStatus === 'COMPLETED') smsEvent = 'EMERGENCY_RESOLVED';
+      else if (upperStatus === 'REJECTED') smsEvent = 'EMERGENCY_REJECTED';
+      else if (upperStatus === 'DUPLICATE') smsEvent = 'EMERGENCY_MARKED_DUPLICATE';
+
+      if (smsEvent) {
+        triggerEmergencySms(request, smsEvent);
+      }
+    }
 
     const io = req.app.get('io');
     if (io) {

@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   Clock
 } from 'lucide-react';
+import logoImg from '../assets/logo.jpg';
 
 
 const Login = () => {
@@ -140,8 +141,8 @@ const Login = () => {
         {/* Header */}
         <div className="flex items-center justify-between pb-4 border-b border-slate-800">
           <div className="flex items-center gap-3">
-            <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-700/80 shadow-md">
-              <img src="/logo.jpg" alt="FloodRelief Logo" className="h-8 w-8 object-cover rounded-lg" />
+            <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-700/80 shadow-md w-11 h-11 shrink-0 flex items-center justify-center overflow-hidden">
+              <img src={logoImg} alt="FloodRelief Logo" className="w-full h-full object-cover rounded-lg" />
             </div>
             <div>
               <div className="text-[10px] font-mono tracking-widest text-cyan-400 uppercase font-bold">

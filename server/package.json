@@ -11,6 +11,7 @@
     "create-admin": "tsx scripts/createAdmin.ts",
     "verify-workflow": "tsx src/utils/simulate-workflow.ts",
     "test:features": "tsx src/utils/verify-features.ts",
+    "test:sms": "tsx src/utils/verify-sms.ts",
     "test": "jest --detectOpenHandles --forceExit"
   },
   "dependencies": {

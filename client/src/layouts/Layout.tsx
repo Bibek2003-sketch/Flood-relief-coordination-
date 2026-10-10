@@ -1,13 +1,15 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, HeartPulse, Radio, PhoneCall, ShieldAlert } from 'lucide-react';
+import { Menu, X, User, HeartPulse, Radio, PhoneCall, ShieldAlert, Waves } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ProfileDropdown } from '../components/ProfileDropdown';
 import { getUserAcronym } from '../utils/googleAuth';
+import logoImg from '../assets/logo.jpg';
 
 const Layout = () => {
   const { user, logout } = useAuth();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [logoError, setLogoError] = useState(false);
   const location = useLocation();
 
   const isActive = (path: string) => location.pathname === path;
@@ -23,8 +25,17 @@ const Layout = () => {
             {/* Brand Logo & Live Telemetry Badge */}
             <div className="flex items-center gap-4">
               <Link to="/" className="flex items-center gap-3 group">
-                <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-700/80 shadow-md group-hover:border-cyan-500/50 transition-all duration-300">
-                  <img src="/logo.jpg" alt="FloodRelief Logo" className="h-9 w-9 object-cover rounded-lg" />
+                <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-700/80 shadow-md group-hover:border-cyan-500/50 transition-all duration-300 w-12 h-12 shrink-0 flex items-center justify-center overflow-hidden">
+                  {!logoError ? (
+                    <img 
+                      src={logoImg} 
+                      alt="FloodRelief Logo" 
+                      className="w-full h-full object-cover rounded-lg" 
+                      onError={() => setLogoError(true)}
+                    />
+                  ) : (
+                    <Waves className="w-6 h-6 text-cyan-400" />
+                  )}
                 </div>
                 <div className="flex flex-col">
                   <span className="font-serif italic font-bold text-2xl tracking-tight text-white group-hover:text-cyan-300 transition-colors">
@@ -56,7 +67,7 @@ const Layout = () => {
               </Link>
               
               {[
-                { name: 'Track SOS', path: '/track-emergency' },
+                { name: 'Track Emergency', path: '/track-emergency' },
                 { name: 'Find Shelters', path: '/shelters' },
                 { name: 'Emergency Contacts', path: '/emergency-contacts' },
                 { name: 'Join Volunteer', path: '/volunteer' },
@@ -122,7 +133,7 @@ const Layout = () => {
             </Link>
             
             {[
-              { name: 'Track SOS Status', path: '/track-emergency' },
+              { name: 'Track Emergency', path: '/track-emergency' },
               { name: 'Find Shelters', path: '/shelters' },
               { name: 'Emergency Contacts', path: '/emergency-contacts' },
               { name: 'Join Volunteer Network', path: '/volunteer' },
@@ -200,8 +211,8 @@ const Layout = () => {
             {/* Col 1: Identity & Mission */}
             <div className="md:col-span-2">
               <div className="flex items-center gap-3 mb-4 group">
-                <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md">
-                  <img src="/logo.jpg" alt="FloodRelief Logo" className="h-8 w-8 object-cover rounded-lg" />
+                <div className="bg-slate-900 p-1.5 rounded-xl border border-slate-800 shadow-md w-11 h-11 shrink-0 flex items-center justify-center overflow-hidden">
+                  <img src={logoImg} alt="FloodRelief Logo" className="w-full h-full object-cover rounded-lg" />
                 </div>
                 <div>
                   <span className="font-serif italic font-bold text-xl tracking-tight text-white">FloodRelief</span>
@@ -249,9 +260,10 @@ const Layout = () => {
                 <Radio size={14} className="text-cyan-400" /> Command Links
               </h3>
               <ul className="space-y-2 text-sm">
-                <li><Link to="/dashboard" className="hover:text-cyan-400 transition-colors">Operations Dashboard</Link></li>
-                <li><Link to="/shelters" className="hover:text-cyan-400 transition-colors">Shelter Locator & Capacity</Link></li>
                 <li><Link to="/emergency" className="text-red-400 hover:text-red-300 font-medium transition-colors">Submit Emergency SOS</Link></li>
+                <li><Link to="/track-emergency" className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors">Track Emergency</Link></li>
+                <li><Link to="/shelters" className="hover:text-cyan-400 transition-colors">Shelter Locator &amp; Capacity</Link></li>
+                <li><Link to="/emergency-contacts" className="hover:text-cyan-400 transition-colors">Emergency Hotlines</Link></li>
                 <li><Link to="/volunteer" className="hover:text-cyan-400 transition-colors">Volunteer Deployment</Link></li>
                 <li><Link to="/donate" className="hover:text-cyan-400 transition-colors">Relief Supply Donations</Link></li>
               </ul>

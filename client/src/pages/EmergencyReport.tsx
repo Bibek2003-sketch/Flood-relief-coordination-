@@ -1,13 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { AlertCircle, MapPin, Send, Navigation, Loader2, Check, Radio, ArrowRight, ShieldCheck, Copy } from 'lucide-react';
+import { AlertCircle, MapPin, Send, Navigation, Loader2, Check, Radio, ArrowRight, ShieldCheck, Copy, MessageSquare, PhoneCall } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
 import toast from 'react-hot-toast';
 import { searchPlace, reverseGeocode, GeocodeResult } from '../utils/geocoding';
 
 const EmergencyReport = () => {
   const navigate = useNavigate();
-  const [submittedReport, setSubmittedReport] = useState<{ requestId: string; status: string } | null>(null);
+  const [submittedReport, setSubmittedReport] = useState<{ 
+    requestId: string; 
+    status: string; 
+    phoneMasked?: string; 
+    preferredLanguage?: string;
+  } | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const [selectedPin, setSelectedPin] = useState<[number, number] | null>(null);
   const [suggestions, setSuggestions] = useState<GeocodeResult[]>([]);
@@ -20,6 +25,7 @@ const EmergencyReport = () => {
     name: '',
     contact: '',
     contactEmail: '',
+    preferredLanguage: 'en' as 'en' | 'as' | 'hi' | 'bn' | 'br',
     location: '',
     people: 1,
     children: 0,
@@ -145,12 +151,21 @@ const EmergencyReport = () => {
       }
     }
 
+    // Validate Indian phone number format
+    const cleanedPhone = formData.contact.replace(/[\s\-\(\)\.]/g, '');
+    const digitsOnly = cleanedPhone.replace(/^\+91/, '').replace(/^0/, '');
+    if (!/^\d{10}$/.test(digitsOnly)) {
+      toast.error('Please enter a valid 10-digit mobile number for SMS dispatch alerts.');
+      return;
+    }
+
     try {
       const payload = {
         name: formData.name,
         citizenName: formData.name || 'Citizen',
         contact: formData.contact,
         contactEmail: formData.contactEmail,
+        preferredLanguage: formData.preferredLanguage,
         location: formData.location, // String address or "GPS: lat, lng"
         coordinates: {
           type: "Point",
@@ -175,13 +190,17 @@ const EmergencyReport = () => {
       const data = await response.json();
       if (data.status === 'success' || data.success) {
         const generatedId = data.requestId || data.data?.requestID || data.data?.requestId || `FLD-${new Date().getFullYear()}-${Math.floor(10000 + Math.random() * 90000)}`;
+        const last4 = digitsOnly.slice(-4);
+        const maskedPhone = `+91 ******${last4}`;
         setSubmittedReport({
           requestId: generatedId,
-          status: 'Submitted / Under Review'
+          status: 'Submitted / Under Review',
+          phoneMasked: maskedPhone,
+          preferredLanguage: formData.preferredLanguage
         });
         toast.success(`Emergency registered: ${generatedId}`);
         setFormData({
-          name: '', contact: '', contactEmail: '', location: '', people: 1, children: 0, elderly: 0, disabled: 0, categories: [], description: ''
+          name: '', contact: '', contactEmail: '', preferredLanguage: formData.preferredLanguage, location: '', people: 1, children: 0, elderly: 0, disabled: 0, categories: [], description: ''
         });
         setSelectedPin(null);
         setSuggestions([]);
@@ -240,6 +259,45 @@ const EmergencyReport = () => {
                   placeholder="For dispatch alert"
                 />
               </div>
+            </div>
+
+            {/* Multilingual SMS Dispatch Selector */}
+            <div className="p-4 bg-slate-900/90 border border-slate-700/80 rounded-xl space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
+                <label className="text-xs font-mono uppercase tracking-wider text-cyan-400 font-bold flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>SMS Notification Language / भाषा</span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  Standard keypad mobile phones supported
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">
+                {[
+                  { code: 'en', label: 'English', sub: 'Standard SMS' },
+                  { code: 'as', label: 'অসমীয়া', sub: 'Assamese' },
+                  { code: 'hi', label: 'हिन्दी', sub: 'Hindi' },
+                  { code: 'bn', label: 'বাংলা', sub: 'Bengali' },
+                  { code: 'br', label: 'बड़ो / Bodo', sub: 'बर\' (Devanagari)' }
+                ].map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => setFormData({ ...formData, preferredLanguage: item.code as any })}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      formData.preferredLanguage === item.code
+                        ? 'bg-cyan-950/60 border-cyan-400 text-white shadow-md shadow-cyan-950/40 ring-1 ring-cyan-500/50'
+                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                    }`}
+                  >
+                    <div className="font-extrabold text-sm">{item.label}</div>
+                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">{item.sub}</div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-slate-400 leading-relaxed font-mono">
+                ℹ️ Status updates regarding squad assignment and operation progress will be sent via SMS in this language. SMS delivery may be subject to carrier network conditions. If immediate danger exists, call 112 directly.
+              </p>
             </div>
 
             <div>
@@ -424,6 +482,18 @@ const EmergencyReport = () => {
                 <span>Status: {submittedReport.status}</span>
               </div>
             </div>
+
+            {submittedReport.phoneMasked && (
+              <div className="bg-cyan-950/40 border border-cyan-700/50 p-3 rounded-xl flex items-center justify-between text-xs font-mono text-cyan-300">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-cyan-400 shrink-0" />
+                  <span>SMS Dispatched to: <strong className="text-white">{submittedReport.phoneMasked}</strong></span>
+                </div>
+                <span className="uppercase text-[10px] font-bold px-2 py-0.5 rounded bg-cyan-900/80 text-cyan-200 border border-cyan-700">
+                  {submittedReport.preferredLanguage?.toUpperCase() || 'EN'}
+                </span>
+              </div>
+            )}
 
             <p className="text-xs text-amber-300/90 bg-amber-950/30 border border-amber-900/50 p-3 rounded-xl font-mono text-left">
               ⚠️ <strong>IMPORTANT:</strong> Please write down or save this Request ID. You can use it anytime on our public tracking portal to check live rescue squad dispatch and status updates.

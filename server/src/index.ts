@@ -18,6 +18,7 @@ import adminRoutes from './routes/adminRoutes';
 import volunteerRoutes from './routes/volunteerRoutes';
 import ngoRoutes from './routes/ngoRoutes';
 import notificationRoutes from './routes/notificationRoutes';
+import smsNotificationRoutes from './routes/smsNotificationRoutes';
 import donationRoutes from './routes/donationRoutes';
 import medicalRoutes from './routes/medicalRoutes';
 import { ensureDemoRescueTeams } from './utils/rescueTeamSeeder';
@@ -106,6 +107,7 @@ app.use('/api/v1/admin', adminRoutes);
 app.use('/api/v1/volunteer', volunteerRoutes);
 app.use('/api/v1/ngo', ngoRoutes);
 app.use('/api/v1/notifications', notificationRoutes);
+app.use('/api/v1/notifications/sms', smsNotificationRoutes);
 app.use('/api/v1/donations', donationRoutes);
 app.use('/api/v1/medical', medicalRoutes);
 

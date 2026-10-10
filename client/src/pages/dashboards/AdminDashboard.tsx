@@ -19,7 +19,13 @@ import {
   ChevronRight,
   Filter,
   UserCheck,
-  FileText
+  FileText,
+  MessageSquare,
+  Globe,
+  Send,
+  Radio,
+  Eye,
+  Phone
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { socket } from '../../utils/socket';
@@ -88,6 +94,42 @@ interface RescueTeam {
   currentMission?: any;
 }
 
+interface SmsLogItem {
+  _id: string;
+  requestId: string;
+  eventType: string;
+  preferredLanguage: string;
+  recipientMasked: string;
+  status: 'PENDING' | 'PROCESSING' | 'SENT' | 'DELIVERED' | 'FAILED' | 'SKIPPED' | 'UNKNOWN';
+  encoding: string;
+  characterCount: number;
+  segmentCount: number;
+  messagePreview: string;
+  provider: string;
+  providerMessageId?: string;
+  safeFailureReason?: string;
+  createdAt: string;
+}
+
+interface SmsStats {
+  total: number;
+  sent: number;
+  delivered: number;
+  failed: number;
+  skipped: number;
+  languages: Record<string, number>;
+  encodings: Record<string, number>;
+  provider: {
+    enabled: boolean;
+    activeProvider: string;
+    providerName: string;
+    isConfigured: boolean;
+    senderId?: string;
+    mode: 'live' | 'simulation';
+    dltEntityConfigured: boolean;
+  };
+}
+
 const AdminDashboard: React.FC = () => {
   const { token } = useAuth();
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -95,9 +137,20 @@ const AdminDashboard: React.FC = () => {
   const [rescueTeams, setRescueTeams] = useState<RescueTeam[]>([]);
   const [operationalUsers, setOperationalUsers] = useState<any[]>([]);
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [activeSubTab, setActiveSubTab] = useState<'emergencies' | 'users' | 'audit'>('emergencies');
+  const [activeSubTab, setActiveSubTab] = useState<'emergencies' | 'users' | 'audit' | 'sms'>('emergencies');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  // SMS Notifications State
+  const [smsLogs, setSmsLogs] = useState<SmsLogItem[]>([]);
+  const [smsStats, setSmsStats] = useState<SmsStats | null>(null);
+  const [smsStatusFilter, setSmsStatusFilter] = useState('ALL');
+  const [smsLangFilter, setSmsLangFilter] = useState('ALL');
+  const [smsSearchQuery, setSmsSearchQuery] = useState('');
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [selectedPreviewEvent, setSelectedPreviewEvent] = useState('EMERGENCY_REPORT_RECEIVED');
+  const [selectedPreviewLang, setSelectedPreviewLang] = useState('hi');
+  const [previewResult, setPreviewResult] = useState<any>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -146,27 +199,103 @@ const AdminDashboard: React.FC = () => {
     }
   };
 
+  const fetchSmsData = async () => {
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
+      const queryParams = new URLSearchParams();
+      if (smsStatusFilter !== 'ALL') queryParams.append('status', smsStatusFilter);
+      if (smsLangFilter !== 'ALL') queryParams.append('language', smsLangFilter);
+      if (smsSearchQuery.trim()) queryParams.append('search', smsSearchQuery.trim());
+
+      const [statsRes, logsRes] = await Promise.all([
+        fetch(`${baseUrl}/notifications/sms/stats`, { headers }),
+        fetch(`${baseUrl}/notifications/sms/logs?${queryParams.toString()}`, { headers })
+      ]);
+
+      const [statsData, logsData] = await Promise.all([
+        statsRes.json(),
+        logsRes.json()
+      ]);
+
+      if (statsData.success && statsData.stats) setSmsStats(statsData.stats);
+      if (logsData.success && logsData.data) setSmsLogs(logsData.data);
+    } catch (err) {
+      console.error('Failed to fetch SMS telemetry:', err);
+    }
+  };
+
+  const handlePreviewSms = async (eventType: string, language: string) => {
+    try {
+      const headers = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      };
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1';
+
+      const res = await fetch(`${baseUrl}/notifications/sms/preview`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          eventType,
+          language,
+          variables: {
+            requestId: 'REQ-8492',
+            teamName: 'Alpha Marine Squad',
+            eta: '20 mins',
+            helpline: '1070',
+            contact: '9876543210'
+          }
+        })
+      });
+
+      const data = await res.json();
+      if (data.success && data.data) {
+        setPreviewResult(data.data);
+      }
+    } catch (err) {
+      console.error('Failed to generate SMS preview:', err);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchDashboardData();
+      fetchSmsData();
     }
   }, [token, statusFilter, priorityFilter]);
 
   useEffect(() => {
+    if (token && activeSubTab === 'sms') {
+      fetchSmsData();
+    }
+  }, [token, activeSubTab, smsStatusFilter, smsLangFilter, smsSearchQuery]);
+
+  useEffect(() => {
+    if (previewModalOpen) {
+      handlePreviewSms(selectedPreviewEvent, selectedPreviewLang);
+    }
+  }, [previewModalOpen, selectedPreviewEvent, selectedPreviewLang]);
+
+  useEffect(() => {
     const handleLiveSync = () => {
       fetchDashboardData();
+      fetchSmsData();
     };
 
     socket.on('rescue-team-updated', handleLiveSync);
     socket.on('emergency-status-changed', handleLiveSync);
     socket.on('request-updated', handleLiveSync);
     socket.on('new-request', handleLiveSync);
+    socket.on('sms-dispatched', handleLiveSync);
 
     return () => {
       socket.off('rescue-team-updated', handleLiveSync);
       socket.off('emergency-status-changed', handleLiveSync);
       socket.off('request-updated', handleLiveSync);
       socket.off('new-request', handleLiveSync);
+      socket.off('sms-dispatched', handleLiveSync);
     };
   }, []);
 
@@ -459,10 +588,10 @@ const AdminDashboard: React.FC = () => {
       </div>
 
       {/* Sub-workspace Navigation Switcher */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3 pt-2">
+      <div className="flex items-center gap-2 border-b border-slate-800 pb-3 pt-2 overflow-x-auto no-scrollbar scroll-smooth">
         <button
           onClick={() => setActiveSubTab('emergencies')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
             activeSubTab === 'emergencies'
               ? 'bg-red-600 text-white shadow-lg shadow-red-950/80 border border-red-500'
               : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
@@ -474,7 +603,7 @@ const AdminDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('users')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
             activeSubTab === 'users'
               ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-950/80 border border-cyan-500'
               : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
@@ -486,7 +615,7 @@ const AdminDashboard: React.FC = () => {
 
         <button
           onClick={() => setActiveSubTab('audit')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 ${
+          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
             activeSubTab === 'audit'
               ? 'bg-purple-600 text-white shadow-lg shadow-purple-950/80 border border-purple-500'
               : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
@@ -495,25 +624,37 @@ const AdminDashboard: React.FC = () => {
           <FileText className="w-3.5 h-3.5" />
           <span>Mission Audit Logs ({auditLogs.length})</span>
         </button>
+
+        <button
+          onClick={() => setActiveSubTab('sms')}
+          className={`px-3.5 sm:px-4 py-2 sm:py-2.5 rounded-xl text-xs font-mono font-bold transition-all flex items-center gap-2 shrink-0 whitespace-nowrap ${
+            activeSubTab === 'sms'
+              ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-950/80 border border-emerald-500'
+              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800 hover:bg-slate-850'
+          }`}
+        >
+          <MessageSquare className="w-3.5 h-3.5" />
+          <span>SMS Broadcasts & Gateway ({smsStats?.total ?? 0})</span>
+        </button>
       </div>
 
       {/* Emergency Management Section */}
       {activeSubTab === 'emergencies' && (
-      <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-800">
+      <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-3 sm:p-5 lg:p-6 space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-slate-800">
           <div>
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+            <h2 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400 shrink-0" />
               <span>SOS Emergency Dispatch Registry</span>
             </h2>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-400 mt-0.5">
               Verify, escalate priority, and assign quick rescue squads to incoming citizen distress signals.
             </p>
           </div>
 
           {/* Search & Filter Controls */}
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="relative">
+          <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-2">
+            <div className="relative flex-1 sm:w-64">
               <Search className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
@@ -521,42 +662,134 @@ const AdminDashboard: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') fetchDashboardData(); }}
-                className="pl-8 pr-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                className="w-full pl-8 pr-3 py-2 sm:py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
               />
             </div>
 
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
-            >
-              <option value="ALL">All Statuses</option>
-              <option value="SUBMITTED">Submitted</option>
-              <option value="UNDER_REVIEW">Under Review</option>
-              <option value="VERIFIED">Verified</option>
-              <option value="ASSIGNED">Assigned</option>
-              <option value="RESCUE_IN_PROGRESS">Rescue in Progress</option>
-              <option value="RESOLVED">Resolved</option>
-              <option value="REJECTED">Rejected</option>
-            </select>
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-2">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="SUBMITTED">Submitted</option>
+                <option value="UNDER_REVIEW">Under Review</option>
+                <option value="VERIFIED">Verified</option>
+                <option value="ASSIGNED">Assigned</option>
+                <option value="RESCUE_IN_PROGRESS">Rescue in Progress</option>
+                <option value="RESOLVED">Resolved</option>
+                <option value="REJECTED">Rejected</option>
+              </select>
 
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-2.5 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
-            >
-              <option value="ALL">All Priorities</option>
-              <option value="Critical">Critical</option>
-              <option value="High">High</option>
-              <option value="Medium">Medium</option>
-              <option value="Low">Low</option>
-            </select>
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+                className="w-full sm:w-auto px-2.5 py-2 sm:py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-300 focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Priorities</option>
+                <option value="Critical">Critical</option>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+            </div>
           </div>
         </div>
 
-        {/* Emergencies Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs font-mono border-collapse">
+        {/* 1. Mobile-Optimized Card Stack (< md screens like smart phones) */}
+        <div className="md:hidden space-y-3">
+          {emergencies.length === 0 ? (
+            <div className="py-8 text-center text-slate-500 text-xs font-mono bg-slate-900/50 rounded-xl border border-slate-800">
+              No emergency requests match current filter parameters.
+            </div>
+          ) : (
+            emergencies.map((e) => {
+              const reqId = e.requestID || e.requestId || e._id.slice(-6).toUpperCase();
+              return (
+                <div
+                  key={e._id}
+                  className="bg-slate-900/90 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-3 shadow-md"
+                >
+                  {/* Top Bar: ID + Status + Priority */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-bold text-cyan-400 font-mono text-xs">
+                      {reqId}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      {getPriorityBadge(e.priority)}
+                      {getStatusBadge(e.status)}
+                    </div>
+                  </div>
+
+                  {/* Citizen Info & Location */}
+                  <div className="space-y-1 text-xs font-mono">
+                    <div className="flex items-start gap-1.5 text-slate-200">
+                      <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0 mt-0.5" />
+                      <span className="font-semibold leading-snug">{e.location}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-400 text-[11px] pt-1">
+                      <span>Citizen: <strong className="text-white">{e.citizenName}</strong></span>
+                      <a href={`tel:${e.contact}`} className="text-cyan-400 hover:underline flex items-center gap-1 font-bold">
+                        <Phone className="w-3 h-3" /> {e.contact}
+                      </a>
+                    </div>
+                  </div>
+
+                  {/* People Count & Category */}
+                  <div className="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 text-[11px] font-mono grid grid-cols-2 gap-2 text-slate-300">
+                    <div>
+                      <span className="text-slate-500 text-[10px] block uppercase">Citizens</span>
+                      <span className="text-white font-bold">{e.numberOfPeople} affected</span>
+                      {(e.numberOfElderly || e.numberOfChildren || e.numberOfDisabled) ? (
+                        <span className="text-[10px] text-slate-400 block font-normal">
+                          ({e.numberOfChildren || 0}k, {e.numberOfElderly || 0}e, {e.numberOfDisabled || 0}d)
+                        </span>
+                      ) : null}
+                    </div>
+                    <div>
+                      <span className="text-slate-500 text-[10px] block uppercase">Categories</span>
+                      <span className="text-cyan-300 font-semibold truncate block">
+                        {e.requestCategory?.join(', ') || 'Rescue'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Assigned Squad Status */}
+                  <div className="flex items-center justify-between pt-1 text-xs font-mono">
+                    <div className="flex items-center gap-1.5 text-slate-400 text-[11px]">
+                      <Shield className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      {e.assignedTeam ? (
+                        <span className="text-white font-semibold truncate max-w-[170px]">
+                          {e.assignedTeam.name || e.assignedTeam.organization || `${e.assignedTeam.firstName} ${e.assignedTeam.lastName}`}
+                        </span>
+                      ) : (
+                        <span className="text-slate-500 italic">Unassigned squad</span>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedEmergency(e);
+                        setAssigningTeamId(e.assignedTeam?._id || '');
+                        setUpdatingPriority(e.priority);
+                        setUpdatingStatus(e.status);
+                      }}
+                      className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-mono font-bold transition-all shadow-sm"
+                    >
+                      Manage
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* 2. Desktop & Tablet View (>= md screens) with Responsive Horizontal Overflow */}
+        <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-800">
+          <table className="w-full text-left text-xs font-mono border-collapse min-w-[780px]">
             <thead>
               <tr className="border-b border-slate-800 text-slate-400 bg-slate-900/60 uppercase tracking-wider text-[11px]">
                 <th className="py-3 px-3">Emergency ID</th>
@@ -580,11 +813,11 @@ const AdminDashboard: React.FC = () => {
                   const reqId = e.requestID || e.requestId || e._id.slice(-6).toUpperCase();
                   return (
                     <tr key={e._id} className="hover:bg-slate-800/30 transition-colors">
-                      <td className="py-3 px-3 font-bold text-cyan-400">
+                      <td className="py-3 px-3 font-bold text-cyan-400 whitespace-nowrap">
                         {reqId}
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         {getPriorityBadge(e.priority)}
                       </td>
 
@@ -604,25 +837,25 @@ const AdminDashboard: React.FC = () => {
 
                       <td className="py-3 px-3 max-w-[200px]">
                         <div className="text-slate-200 truncate">{e.location}</div>
-                        <div className="text-[10px] text-slate-400">{e.citizenName} ({e.contact})</div>
+                        <div className="text-[10px] text-slate-400 truncate">{e.citizenName} ({e.contact})</div>
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         {getStatusBadge(e.status)}
                       </td>
 
-                      <td className="py-3 px-3">
+                      <td className="py-3 px-3 whitespace-nowrap">
                         {e.assignedTeam ? (
                           <div className="text-white font-semibold flex items-center gap-1.5">
                             <Shield className="w-3.5 h-3.5 text-amber-400" />
-                            <span>{e.assignedTeam.name || e.assignedTeam.organization || `${e.assignedTeam.firstName} ${e.assignedTeam.lastName}`}</span>
+                            <span className="truncate max-w-[160px]">{e.assignedTeam.name || e.assignedTeam.organization || `${e.assignedTeam.firstName} ${e.assignedTeam.lastName}`}</span>
                           </div>
                         ) : (
                           <span className="text-slate-500 text-[11px] italic">Unassigned</span>
                         )}
                       </td>
 
-                      <td className="py-3 px-3 text-right">
+                      <td className="py-3 px-3 text-right whitespace-nowrap">
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => {
@@ -850,27 +1083,457 @@ const AdminDashboard: React.FC = () => {
         </div>
       )}
 
-      {/* Emergency Detail & Management Modal */}
-      {selectedEmergency && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+      {/* SMS Gateway & Multilingual Broadcast Audit Section */}
+      {activeSubTab === 'sms' && (
+        <div className="space-y-6">
+          {/* Top Banner: Gateway Provider & Regulatory DLT Telemetry */}
+          <div className="bg-[#0f172a] rounded-2xl border border-slate-800 p-5 sm:p-6 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="p-1.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                    <Radio className="w-5 h-5 animate-pulse" />
+                  </span>
+                  <h2 className="text-lg font-bold text-white">Outbound SMS Notification Gateway</h2>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase ${
+                    smsStats?.provider.mode === 'live'
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {smsStats?.provider.mode === 'live' ? '● Live Gateway Active' : '● Simulation / Sandbox Mode'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono mt-1">
+                  TRAI DLT Compliant • Multilingual Unicode (GSM-7 & UCS-2) • Offline Emergency Alert Dispatcher
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setPreviewModalOpen(true)}
+                  className="px-3.5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-xs font-mono font-semibold flex items-center gap-2 shadow-lg shadow-emerald-950/50 transition-all"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span>Template & UCS-2 Inspector</span>
+                </button>
+                <button
+                  onClick={fetchSmsData}
+                  className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono flex items-center gap-1.5 border border-slate-700 transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Provider and Channel Health */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">Gateway Provider</span>
+                <span className="text-sm font-mono font-bold text-white mt-1 block">
+                  {smsStats?.provider.providerName || 'Local Mock Simulator'}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {smsStats?.provider.isConfigured ? 'API Credentials Verified' : 'Zero-cost dev simulator'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">DLT Entity & Sender ID</span>
+                <span className="text-sm font-mono font-bold text-cyan-400 mt-1 block">
+                  {smsStats?.provider.senderId || 'FLDREL (Header)'}
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {smsStats?.provider.dltEntityConfigured ? 'Enterprise PE Registered' : 'Mock registration'}
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">Total Messages Dispatched</span>
+                <span className="text-sm font-mono font-bold text-white mt-1 block">
+                  {smsStats?.total ?? 0}
+                </span>
+                <span className="text-[10px] text-emerald-400 font-mono">
+                  {smsStats?.delivered ?? 0} confirmed delivered
+                </span>
+              </div>
+
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800/80">
+                <span className="text-[10px] font-mono uppercase text-slate-400 block">Encoding & Failures</span>
+                <span className="text-sm font-mono font-bold text-amber-300 mt-1 block">
+                  {smsStats?.failed ?? 0} Failed / {smsStats?.skipped ?? 0} Skipped
+                </span>
+                <span className="text-[10px] text-slate-500 font-mono">
+                  {smsStats?.encodings?.['UCS-2'] ?? 0} Unicode UCS-2 • {smsStats?.encodings?.['GSM-7'] ?? 0} GSM-7
+                </span>
+              </div>
+            </div>
+
+            {/* Language Breakdown Pills */}
+            <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-800/60 text-xs font-mono">
+              <span className="text-slate-400 text-[11px] font-semibold flex items-center gap-1.5 mr-2">
+                <Globe className="w-3.5 h-3.5 text-cyan-400" />
+                Language Distribution:
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-2">
+                <span>English (en):</span>
+                <strong className="text-white">{smsStats?.languages?.['en'] ?? 0}</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-2">
+                <span>অসমীয়া (as):</span>
+                <strong className="text-teal-400">{smsStats?.languages?.['as'] ?? 0}</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-2">
+                <span>हिन्दी (hi):</span>
+                <strong className="text-cyan-400">{smsStats?.languages?.['hi'] ?? 0}</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-2">
+                <span>বাংলা (bn):</span>
+                <strong className="text-emerald-400">{smsStats?.languages?.['bn'] ?? 0}</strong>
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/60 text-slate-300 flex items-center gap-2">
+                <span>बर' / Bodo (br):</span>
+                <strong className="text-purple-400">{smsStats?.languages?.['br'] ?? 0}</strong>
+              </span>
+            </div>
+          </div>
+
+          {/* Filter Bar */}
+          <div className="bg-[#0f172a] rounded-xl border border-slate-800 p-4 flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+            <div className="flex-1 flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="Filter by Request ID, phone (+91...) or message ID..."
+                  value={smsSearchQuery}
+                  onChange={(e) => setSmsSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+                />
+              </div>
+
+              <select
+                value={smsStatusFilter}
+                onChange={(e) => setSmsStatusFilter(e.target.value)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Delivery Statuses</option>
+                <option value="DELIVERED">DELIVERED (Confirmed)</option>
+                <option value="SENT">SENT (Handed to Carrier)</option>
+                <option value="PROCESSING">PROCESSING</option>
+                <option value="FAILED">FAILED (Gateway Error)</option>
+                <option value="SKIPPED">SKIPPED (Rate-limit/Disabled)</option>
+              </select>
+
+              <select
+                value={smsLangFilter}
+                onChange={(e) => setSmsLangFilter(e.target.value)}
+                className="px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+              >
+                <option value="ALL">All Languages</option>
+                <option value="en">English (en)</option>
+                <option value="as">অসমীয়া (as)</option>
+                <option value="hi">हिन्दी (hi)</option>
+                <option value="bn">বাংলা (bn)</option>
+                <option value="br">बर' / Bodo (br)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* SMS Audit Log Table */}
+          <div className="bg-[#0f172a] rounded-2xl border border-slate-800 overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex items-center justify-between">
+              <h3 className="text-sm font-mono font-bold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-cyan-400" />
+                <span>Outbound Citizen SMS Dispatch Trail ({smsLogs.length} logs)</span>
+              </h3>
+              <span className="text-[11px] font-mono text-slate-400">
+                PII Protected • Full SHA-256 Recipient Masking
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs font-mono">
+                <thead>
+                  <tr className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                    <th className="py-3 px-4">TIMESTAMP</th>
+                    <th className="py-3 px-4">REQUEST ID</th>
+                    <th className="py-3 px-4">RECIPIENT</th>
+                    <th className="py-3 px-4">EVENT TRIGGER</th>
+                    <th className="py-3 px-4">LANG</th>
+                    <th className="py-3 px-4">ENCODING / SEGMENTS</th>
+                    <th className="py-3 px-4">STATUS</th>
+                    <th className="py-3 px-4 min-w-[280px]">RENDERED MESSAGE PREVIEW</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {smsLogs.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 font-mono">
+                        No SMS notification records match the specified filters.
+                      </td>
+                    </tr>
+                  ) : (
+                    smsLogs.map((log) => {
+                      const getStatusBadge = (status: string) => {
+                        switch (status) {
+                          case 'DELIVERED':
+                            return <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-bold">DELIVERED</span>;
+                          case 'SENT':
+                            return <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-bold">SENT</span>;
+                          case 'FAILED':
+                            return <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 border border-red-500/30 font-bold" title={log.safeFailureReason || 'Failed'}>FAILED</span>;
+                          case 'SKIPPED':
+                            return <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">SKIPPED</span>;
+                          default:
+                            return <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-400">{status}</span>;
+                        }
+                      };
+
+                      const getLangLabel = (code: string) => {
+                        switch (code) {
+                          case 'as': return <span className="px-1.5 py-0.5 rounded bg-teal-950/80 text-teal-300 border border-teal-800/40 font-bold">AS অসমীয়া</span>;
+                          case 'hi': return <span className="px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-800/40 font-bold">HI हिन्दी</span>;
+                          case 'bn': return <span className="px-1.5 py-0.5 rounded bg-emerald-950/80 text-emerald-300 border border-emerald-800/40 font-bold">BN বাংলা</span>;
+                          case 'br': return <span className="px-1.5 py-0.5 rounded bg-purple-950/80 text-purple-300 border border-purple-800/40 font-bold">BR बर'</span>;
+                          default: return <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-bold">EN Eng</span>;
+                        }
+                      };
+
+                      return (
+                        <tr key={log._id} className="hover:bg-slate-850/50 transition-colors">
+                          <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                            {new Date(log.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                            <span className="block text-[10px] text-slate-500">
+                              {new Date(log.createdAt).toLocaleDateString([], { month: 'short', day: 'numeric' })}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 font-bold text-white whitespace-nowrap">
+                            {log.requestId || '—'}
+                          </td>
+                          <td className="py-3 px-4 font-mono text-cyan-300 whitespace-nowrap">
+                            {log.recipientMasked}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            <span className="px-2 py-0.5 rounded bg-slate-800 border border-slate-700 text-slate-200 text-[10px]">
+                              {log.eventType}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {getLangLabel(log.preferredLanguage)}
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap text-slate-300 text-[11px]">
+                            <span className={`px-1.5 py-0.5 rounded mr-1 ${log.encoding === 'UCS-2' ? 'bg-amber-950/60 text-amber-300 border border-amber-800/40' : 'bg-slate-800 text-slate-300'}`}>
+                              {log.encoding}
+                            </span>
+                            <span>{log.segmentCount} seg ({log.characterCount}c)</span>
+                          </td>
+                          <td className="py-3 px-4 whitespace-nowrap">
+                            {getStatusBadge(log.status)}
+                          </td>
+                          <td className="py-3 px-4 text-slate-300 text-[11px] leading-relaxed max-w-sm">
+                            <p className="line-clamp-2 bg-slate-900/60 p-1.5 rounded border border-slate-800 text-slate-200">
+                              {log.messagePreview}
+                            </p>
+                            {log.safeFailureReason && (
+                              <span className="text-[10px] text-red-400 block mt-1">
+                                Reason: {log.safeFailureReason}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Live Template & UCS-2 Segment Inspector Modal */}
+      {previewModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
           <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-2xl w-full p-6 shadow-2xl space-y-5 text-left relative max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-              <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">EMERGENCY CONTROLLER</span>
-                <h3 className="text-lg font-bold text-white">
-                  Incident {selectedEmergency.requestID || selectedEmergency.requestId || selectedEmergency._id}
-                </h3>
+              <div className="flex items-center gap-2">
+                <span className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400">
+                  <Eye className="w-5 h-5" />
+                </span>
+                <div>
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">REGULATORY SMS INSPECTOR</span>
+                  <h3 className="text-lg font-bold text-white">Live Emergency SMS Template Tester</h3>
+                </div>
               </div>
               <button
-                onClick={() => setSelectedEmergency(null)}
+                onClick={() => setPreviewModalOpen(false)}
                 className="p-1 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
               >
                 ✕
               </button>
             </div>
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-4 text-xs font-mono bg-slate-900/80 p-4 rounded-xl border border-slate-800">
+            {/* Selectors */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
+              <div>
+                <label className="block text-slate-400 uppercase text-[10px] mb-1 font-semibold">
+                  Emergency Lifecycle Event:
+                </label>
+                <select
+                  value={selectedPreviewEvent}
+                  onChange={(e) => setSelectedPreviewEvent(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <optgroup label="Core Report & Intake (Stages 1-4)">
+                    <option value="REPORT_RECEIVED">Stage 1: REPORT_RECEIVED</option>
+                    <option value="REPORT_UNDER_REVIEW">Stage 2: REPORT_UNDER_REVIEW</option>
+                    <option value="REPORT_VERIFIED">Stage 3: REPORT_VERIFIED</option>
+                    <option value="PRIORITY_UPDATED">Stage 4: PRIORITY_UPDATED</option>
+                  </optgroup>
+                  <optgroup label="Rescue Operations (Stages 5-11)">
+                    <option value="RESCUE_TEAM_ASSIGNED">Stage 5: RESCUE_TEAM_ASSIGNED</option>
+                    <option value="RESCUE_TEAM_ACCEPTED">Stage 6: RESCUE_TEAM_ACCEPTED</option>
+                    <option value="RESCUE_OPERATION_STARTED">Stage 7: RESCUE_OPERATION_STARTED</option>
+                    <option value="RESCUE_TEAM_EN_ROUTE">Stage 8: RESCUE_TEAM_EN_ROUTE</option>
+                    <option value="RESCUE_TEAM_ARRIVED">Stage 9: RESCUE_TEAM_ARRIVED</option>
+                    <option value="TEMPORARILY_DELAYED">Stage 10: TEMPORARILY_DELAYED</option>
+                    <option value="ASSISTANCE_IN_PROGRESS">Stage 11: ASSISTANCE_IN_PROGRESS</option>
+                  </optgroup>
+                  <optgroup label="Resolution & Closure (Stages 12-16)">
+                    <option value="REPORT_RESOLVED">Stage 12: REPORT_RESOLVED</option>
+                    <option value="REPORT_REJECTED">Stage 13: REPORT_REJECTED</option>
+                    <option value="REPORT_MARKED_DUPLICATE">Stage 14: REPORT_MARKED_DUPLICATE</option>
+                    <option value="REPORT_CANCELLED">Stage 15: REPORT_CANCELLED</option>
+                    <option value="REPORT_REOPENED">Stage 16: REPORT_REOPENED</option>
+                  </optgroup>
+                  <optgroup label="Follow-ups & Shelters (Stages 17-19)">
+                    <option value="ADDITIONAL_INFO_REQUIRED">Stage 17: ADDITIONAL_INFO_REQUIRED</option>
+                    <option value="SHELTER_UPDATE">Stage 18: SHELTER_UPDATE</option>
+                    <option value="REQUEST_UPDATED">Stage 19: REQUEST_UPDATED</option>
+                  </optgroup>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 uppercase text-[10px] mb-1 font-semibold">
+                  Citizen Language Preference:
+                </label>
+                <select
+                  value={selectedPreviewLang}
+                  onChange={(e) => setSelectedPreviewLang(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-900 border border-slate-700 rounded-xl text-xs font-mono text-white focus:outline-none focus:border-cyan-500"
+                >
+                  <option value="en">English (en) — Officially Approved</option>
+                  <option value="as">অসমীয়া / Assamese (as) — Native Field Review</option>
+                  <option value="hi">हिन्दी / Hindi (hi) — Native Field Review</option>
+                  <option value="bn">বাংলা / Bengali (bn) — Native Field Review</option>
+                  <option value="br">बर' / Bodo (br - Devanagari) — Native Field Review</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Simulated Basic Keypad Phone Screen */}
+            <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 border-b border-slate-800 pb-2">
+                <span className="flex items-center gap-1.5 text-emerald-400">
+                  <Send className="w-3.5 h-3.5" />
+                  Sender: FLDREL (DLT Govt Alert)
+                </span>
+                <span>Basic Phone SMS Viewer</span>
+              </div>
+
+              <div className="p-4 bg-slate-900 rounded-lg border border-slate-700/80 text-white font-mono text-sm leading-relaxed whitespace-pre-wrap select-all">
+                {previewResult?.text || 'Loading template preview...'}
+              </div>
+
+              {/* Segment & Encoding Analysis Box */}
+              {previewResult && (
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-center text-xs font-mono">
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block uppercase">Encoding</span>
+                    <span className={`font-bold ${previewResult.encoding === 'UCS-2' ? 'text-amber-400' : 'text-cyan-400'}`}>
+                      {previewResult.encoding}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block uppercase">Char Count</span>
+                    <span className="font-bold text-white">
+                      {previewResult.characterCount} chars
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block uppercase">Segments</span>
+                    <span className={`font-bold ${previewResult.segmentCount > 1 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {previewResult.segmentCount} {previewResult.segmentCount === 1 ? 'SMS part' : 'SMS parts'}
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                    <span className="text-[10px] text-slate-400 block uppercase">Max Chars/Part</span>
+                    <span className="font-bold text-slate-300">
+                      {previewResult.encoding === 'UCS-2' ? (previewResult.segmentCount > 1 ? '67 (multi)' : '70') : (previewResult.segmentCount > 1 ? '153 (multi)' : '160')}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {previewResult && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-2.5 bg-slate-900/50 rounded-lg border border-slate-800 text-[10px] font-mono text-slate-400">
+                  <div className="space-x-2">
+                    <span>Template: <strong className="text-slate-200">{previewResult.templateId || 'FLDREL_STD'}</strong></span>
+                    <span>•</span>
+                    <span>DLT ID: <strong className="text-slate-300">{previewResult.template?.dltTemplateId || 'DLT-FLD-001'}</strong></span>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded font-semibold ${
+                    previewResult.reviewStatus === 'approved' || previewResult.template?.reviewed
+                      ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                  }`}>
+                    {previewResult.reviewStatus === 'approved' || previewResult.template?.reviewed
+                      ? '✓ Approved / Verified'
+                      : '⚠ Needs Native Review'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="pt-2 border-t border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setPreviewModalOpen(false)}
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition-colors"
+              >
+                Close Inspector
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Emergency Detail & Management Modal */}
+      {selectedEmergency && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4 bg-black/85 backdrop-blur-sm animate-fadeIn">
+          <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 text-left relative max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div>
+                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">EMERGENCY CONTROLLER</span>
+                <h3 className="text-base sm:text-lg font-bold text-white truncate max-w-[250px] sm:max-w-none">
+                  Incident {selectedEmergency.requestID || selectedEmergency.requestId || selectedEmergency._id}
+                </h3>
+              </div>
+              <button
+                onClick={() => setSelectedEmergency(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Details Grid: 1 col on mobile, 2 cols on sm+ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 text-xs font-mono bg-slate-900/80 p-3.5 sm:p-4 rounded-xl border border-slate-800">
               <div>
                 <span className="text-slate-400 block text-[10px]">CITIZEN CONTACT</span>
                 <span className="text-white font-bold">{selectedEmergency.citizenName}</span>
@@ -892,39 +1555,39 @@ const AdminDashboard: React.FC = () => {
                 <span className="text-cyan-400">{selectedEmergency.requestCategory?.join(', ')}</span>
               </div>
               {selectedEmergency.description && (
-                <div className="col-span-2 pt-2 border-t border-slate-800">
+                <div className="col-span-1 sm:col-span-2 pt-2 border-t border-slate-800">
                   <span className="text-slate-400 block text-[10px]">SITUATION NOTES</span>
                   <p className="text-slate-200 mt-0.5">{selectedEmergency.description}</p>
                 </div>
               )}
             </div>
 
-            {/* Verification Actions */}
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex items-center justify-between">
+            {/* Verification Actions: flex-col on mobile, flex-row on sm */}
+            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
               <span className="text-xs font-mono text-slate-300 font-semibold">Incident Verification:</span>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-2 sm:flex gap-2">
                 <button
                   type="button"
                   onClick={() => handleVerify(selectedEmergency._id, true)}
-                  className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded-lg transition-all"
+                  className="px-3 py-2 sm:py-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-mono font-bold rounded-lg transition-all text-center"
                 >
                   Verify Incident
                 </button>
                 <button
                   type="button"
                   onClick={() => handleVerify(selectedEmergency._id, false)}
-                  className="px-3 py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 text-xs font-mono rounded-lg transition-all"
+                  className="px-3 py-2 sm:py-1 bg-red-600/30 hover:bg-red-600/50 text-red-300 border border-red-500/30 text-xs font-mono rounded-lg transition-all text-center"
                 >
-                  Reject / False Alarm
+                  Reject / False
                 </button>
               </div>
             </div>
 
             {/* Currently Assigned Rescue Squad (if any) */}
             {selectedEmergency.assignedTeam && (
-              <div className="p-3 bg-slate-900/80 rounded-xl border border-amber-500/30 flex items-center justify-between">
+              <div className="p-3 bg-slate-900/80 rounded-xl border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div className="flex items-center gap-2.5">
-                  <Shield className="w-4 h-4 text-amber-400" />
+                  <Shield className="w-4 h-4 text-amber-400 shrink-0" />
                   <div>
                     <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 block font-semibold">Currently Assigned Unit</span>
                     <span className="text-white text-xs font-mono font-bold">
@@ -937,7 +1600,7 @@ const AdminDashboard: React.FC = () => {
                     )}
                   </div>
                 </div>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold uppercase">
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold uppercase self-start sm:self-center">
                   {selectedEmergency.status === 'RESOLVED' ? 'MISSION COMPLETED' : 'ON MISSION'}
                 </span>
               </div>
@@ -953,7 +1616,7 @@ const AdminDashboard: React.FC = () => {
               </label>
 
               {rescueTeams.length === 0 ? (
-                <div className="flex gap-2">
+                <div className="flex flex-col sm:flex-row gap-2">
                   <select
                     disabled
                     className="flex-1 px-3 py-2 bg-slate-900/60 border border-slate-800 rounded-xl text-xs font-mono text-slate-500 cursor-not-allowed"
@@ -970,7 +1633,7 @@ const AdminDashboard: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <div className="flex gap-2">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <select
                       value={assigningTeamId}
                       onChange={(e) => setAssigningTeamId(e.target.value)}
@@ -987,7 +1650,7 @@ const AdminDashboard: React.FC = () => {
                       type="button"
                       onClick={() => handleAssignTeam(selectedEmergency._id)}
                       disabled={!assigningTeamId}
-                      className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-mono font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1.5"
+                      className="px-4 py-2.5 sm:py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-mono font-bold text-xs rounded-xl transition-all shadow-md flex items-center justify-center gap-1.5"
                     >
                       Confirm Dispatch
                     </button>
@@ -998,7 +1661,7 @@ const AdminDashboard: React.FC = () => {
                     const chosen = rescueTeams.find((t) => t._id === assigningTeamId);
                     if (!chosen) return null;
                     return (
-                      <div className="p-2.5 bg-cyan-950/20 rounded-xl border border-cyan-500/20 text-xs font-mono grid grid-cols-2 gap-2 text-slate-300">
+                      <div className="p-2.5 bg-cyan-950/20 rounded-xl border border-cyan-500/20 text-xs font-mono grid grid-cols-1 sm:grid-cols-2 gap-2 text-slate-300">
                         <div>
                           <span className="text-[10px] text-cyan-400 block font-semibold">LEADER & CONTACT</span>
                           <span className="text-white font-semibold">{chosen.teamLeader}</span>
@@ -1010,7 +1673,7 @@ const AdminDashboard: React.FC = () => {
                           <span className="text-slate-400 block text-[10px]">{chosen.currentLocation}</span>
                         </div>
                         {chosen.skills && chosen.skills.length > 0 && (
-                          <div className="col-span-2 pt-1 border-t border-slate-800">
+                          <div className="col-span-1 sm:col-span-2 pt-1 border-t border-slate-800">
                             <span className="text-[10px] text-cyan-400 block font-semibold">DEPLOYMENT CAPABILITIES</span>
                             <div className="flex flex-wrap gap-1 mt-1">
                               {chosen.skills.map((s, idx) => (
@@ -1028,8 +1691,8 @@ const AdminDashboard: React.FC = () => {
               )}
             </div>
 
-            {/* Change Priority & Lifecycle Status */}
-            <div className="grid grid-cols-2 gap-3 pt-2">
+            {/* Change Priority & Lifecycle Status: 1 col on mobile, 2 cols on sm+ */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
               <div>
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 mb-1">
                   Change Priority:
@@ -1076,7 +1739,7 @@ const AdminDashboard: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setSelectedEmergency(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition-colors"
+                className="w-full sm:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-mono transition-colors text-center"
               >
                 Done
               </button>

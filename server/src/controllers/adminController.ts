@@ -9,6 +9,7 @@ import RescueTeam from '../models/RescueTeam';
 import AuditLog from '../models/AuditLog';
 import { ensureDemoRescueTeams } from '../utils/rescueTeamSeeder';
 import { AuthRequest } from '../middleware/auth';
+import { triggerEmergencySms } from '../services/sms/smsTriggerHelper';
 
 export const getAdminStats = async (req: AuthRequest, res: Response) => {
   try {
@@ -215,6 +216,11 @@ export const assignRescueTeam = async (req: AuthRequest, res: Response) => {
     });
     await emergency.save();
 
+    // Trigger Outbound Multilingual SMS for Rescue Squad Assignment
+    triggerEmergencySms(emergency, 'RESCUE_TEAM_ASSIGNED', {
+      teamName: teamDisplayName
+    });
+
     // 6. Update RescueTeam status to ON_MISSION
     if (rescueTeam) {
       rescueTeam.status = 'ON_MISSION';
@@ -307,6 +313,9 @@ export const verifyEmergency = async (req: AuthRequest, res: Response) => {
 
     await emergency.save();
 
+    // Trigger Outbound Multilingual SMS for Verification or Rejection
+    triggerEmergencySms(emergency, verified ? 'EMERGENCY_VERIFIED' : 'EMERGENCY_REJECTED');
+
     await AuditLog.create({
       action: verified ? 'VERIFY_EMERGENCY' : 'REJECT_EMERGENCY',
       performedBy: req.user?._id,
@@ -367,6 +376,14 @@ export const updateEmergencyPriority = async (req: AuthRequest, res: Response) =
 
     await emergency.save();
 
+    // Trigger Outbound Multilingual SMS for Priority Escalation/Change
+    if (oldPriority !== priority) {
+      triggerEmergencySms(emergency, 'PRIORITY_UPDATED', {
+        oldPriority,
+        newPriority: priority
+      });
+    }
+
     await AuditLog.create({
       action: 'UPDATE_PRIORITY',
       performedBy: req.user?._id,
@@ -406,6 +423,7 @@ export const updateEmergencyStatus = async (req: AuthRequest, res: Response) => 
       return res.status(404).json({ success: false, message: 'Emergency not found' });
     }
 
+    const previousStatus = emergency.status;
     emergency.status = status;
     if (notes) emergency.notes = notes;
     if (status === 'RESOLVED' || status === 'COMPLETED') {
@@ -435,6 +453,60 @@ export const updateEmergencyStatus = async (req: AuthRequest, res: Response) => 
     });
 
     await emergency.save();
+
+    // Trigger Outbound Multilingual SMS based on status transition
+    if (previousStatus !== status) {
+      let smsEvent: string | null = null;
+      switch (status) {
+        case 'UNDER_REVIEW':
+          smsEvent = 'REPORT_UNDER_REVIEW';
+          break;
+        case 'VERIFIED':
+          smsEvent = 'REPORT_VERIFIED';
+          break;
+        case 'CANCELLED':
+          smsEvent = 'REPORT_CANCELLED';
+          break;
+        case 'DUPLICATE':
+          smsEvent = 'REPORT_MARKED_DUPLICATE';
+          break;
+        case 'REOPENED':
+          smsEvent = 'REPORT_REOPENED';
+          break;
+        case 'INFO_REQUIRED':
+          smsEvent = 'ADDITIONAL_INFO_REQUIRED';
+          break;
+        case 'RESOLVED':
+        case 'COMPLETED':
+          smsEvent = 'REPORT_RESOLVED';
+          break;
+        case 'REJECTED':
+          smsEvent = 'REPORT_REJECTED';
+          break;
+        case 'DELAYED':
+          smsEvent = 'TEMPORARILY_DELAYED';
+          break;
+        case 'RESCUE_IN_PROGRESS':
+          smsEvent = 'ASSISTANCE_IN_PROGRESS';
+          break;
+        case 'ON_THE_WAY':
+          smsEvent = 'RESCUE_TEAM_EN_ROUTE';
+          break;
+        case 'ARRIVED':
+          smsEvent = 'RESCUE_TEAM_ARRIVED';
+          break;
+        default:
+          smsEvent = 'REQUEST_UPDATED';
+          break;
+      }
+
+      if (smsEvent) {
+        triggerEmergencySms(emergency, smsEvent as any, {
+          status,
+          notes
+        });
+      }
+    }
 
     await AuditLog.create({
       action: `STATUS_CHANGE_${status}`,

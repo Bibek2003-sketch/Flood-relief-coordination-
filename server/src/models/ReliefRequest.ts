@@ -17,6 +17,7 @@ export interface IReliefRequest extends Document {
   numberOfDisabled: number;
   requestCategory: string[];
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
+  preferredLanguage?: 'en' | 'hi' | 'bn' | 'br' | 'as';
   description?: string;
   photos?: string[];
   status: string;
@@ -65,12 +66,20 @@ const reliefRequestSchema = new Schema<IReliefRequest>(
       enum: ['Low', 'Medium', 'High', 'Critical'],
       default: 'Medium',
     },
+    preferredLanguage: {
+      type: String,
+      enum: ['en', 'hi', 'bn', 'br', 'as'],
+      default: 'en',
+      index: true
+    },
     description: { type: String },
     photos: [{ type: String }],
     status: {
       type: String,
       enum: [
-        'SUBMITTED', 'UNDER_REVIEW', 'VERIFIED', 'ASSIGNED', 'RESCUE_IN_PROGRESS', 'RESOLVED', 'REJECTED', 'CANCELLED', 'DUPLICATE',
+        'SUBMITTED', 'UNDER_REVIEW', 'VERIFIED', 'ASSIGNED', 'ACCEPTED', 'ON_THE_WAY', 'ARRIVED',
+        'RESCUE_IN_PROGRESS', 'DELAYED', 'RESOLVED', 'COMPLETED', 'REJECTED', 'CANCELLED', 'DUPLICATE',
+        'REOPENED', 'INFO_REQUIRED',
         'Submitted', 'Under Review', 'Verified', 'Assigned', 'In Progress', 'Completed', 'Rejected'
       ],
       default: 'SUBMITTED',

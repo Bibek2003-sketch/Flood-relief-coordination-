@@ -4,6 +4,7 @@ import ReliefRequest from '../models/ReliefRequest';
 import RescueTeam from '../models/RescueTeam';
 import AuditLog from '../models/AuditLog';
 import { AuthRequest } from '../middleware/auth';
+import { triggerEmergencySms } from '../services/sms/smsTriggerHelper';
 
 export const getRescueOperations = async (req: Request, res: Response) => {
   try {
@@ -116,6 +117,21 @@ export const updateMissionStatus = async (req: AuthRequest, res: Response) => {
       });
 
       await emergency.save();
+
+      // Trigger Outbound Multilingual SMS for operational rescue events
+      if (status === 'ACCEPTED') {
+        triggerEmergencySms(emergency, 'RESCUE_TEAM_ACCEPTED');
+      } else if (status === 'ON_THE_WAY') {
+        triggerEmergencySms(emergency, 'RESCUE_TEAM_EN_ROUTE');
+      } else if (status === 'ARRIVED') {
+        triggerEmergencySms(emergency, 'RESCUE_TEAM_ARRIVED');
+      } else if (status === 'RESCUE_IN_PROGRESS') {
+        triggerEmergencySms(emergency, 'ASSISTANCE_IN_PROGRESS');
+      } else if (status === 'DELAYED') {
+        triggerEmergencySms(emergency, 'TEMPORARILY_DELAYED');
+      } else if (status === 'COMPLETED' || status === 'RESOLVED') {
+        triggerEmergencySms(emergency, 'REPORT_RESOLVED');
+      }
 
       // Create Audit Log
       await AuditLog.create({
