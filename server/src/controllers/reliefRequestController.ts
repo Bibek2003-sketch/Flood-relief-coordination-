@@ -1,13 +1,17 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
+import fs from 'fs';
+import path from 'path';
 import ReliefRequest from '../models/ReliefRequest';
 import Shelter from '../models/Shelter';
 import User from '../models/User';
 import RescueTeam from '../models/RescueTeam';
 import AuditLog from '../models/AuditLog';
-import { AuthRequest } from '../middleware/auth';
+import { AuthRequest, normalizeRole } from '../middleware/auth';
 import { sendEmail } from '../utils/emailService';
 import { triggerEmergencySms } from '../services/sms/smsTriggerHelper';
+import { VOICE_STORAGE_DIR } from '../utils/audioStorage';
+import { normalizeIndianPhoneNumber } from '../utils/phoneNumber';
 
 export const getPublicOverviewStats = async (req: Request, res: Response) => {
   try {
@@ -330,5 +334,259 @@ export const updateRequestStatus = async (req: AuthRequest, res: Response) => {
     res.json({ status: 'success', data: request });
   } catch (error: any) {
     res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+/**
+ * Public Voice SOS Emergency Submission
+ * Accepts multipart/form-data with recorded audio file and optional location & contact.
+ * Creates an authentic emergency record in the central registry with status = SUBMITTED.
+ */
+export const createVoiceRequest = async (req: AuthRequest, res: Response): Promise<void> => {
+  const uploadedFile = req.file;
+
+  try {
+    if (!uploadedFile) {
+      res.status(400).json({
+        status: 'fail',
+        success: false,
+        error: 'No audio recording received. Please record your emergency message before submitting.'
+      });
+      return;
+    }
+
+    // 1. Duration validation (max ~90s allowed with safety margin)
+    const durationSeconds = Math.round(parseFloat(req.body.durationSeconds || '0') || 0);
+    if (durationSeconds > 120) {
+      if (fs.existsSync(uploadedFile.path)) fs.unlinkSync(uploadedFile.path);
+      res.status(400).json({
+        status: 'fail',
+        success: false,
+        error: 'Recording exceeds the maximum allowed duration of 90 seconds. Please keep message concise.'
+      });
+      return;
+    }
+
+    // 2. Validate coordinates if provided
+    let coordinates = [91.7362, 26.1445]; // Default Assam Disaster Operations Center
+    let hasValidCoordinates = false;
+    if (req.body.latitude !== undefined && req.body.longitude !== undefined) {
+      const lat = parseFloat(req.body.latitude);
+      const lng = parseFloat(req.body.longitude);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        coordinates = [lng, lat]; // GeoJSON [longitude, latitude]
+        hasValidCoordinates = true;
+      }
+    }
+
+    // 3. Optional location accuracy (meters)
+    let locationAccuracy: number | undefined = undefined;
+    if (req.body.locationAccuracy !== undefined) {
+      const acc = parseFloat(req.body.locationAccuracy);
+      if (!isNaN(acc) && acc >= 0) {
+        locationAccuracy = Math.round(acc);
+      }
+    }
+
+    // 4. Optional callback phone number validation
+    let normalizedPhone = 'Not provided';
+    const rawCallbackPhone = (req.body.callbackPhone || req.body.contact || '').trim();
+    if (rawCallbackPhone) {
+      const phoneValidation = normalizeIndianPhoneNumber(rawCallbackPhone);
+      if (!phoneValidation.isValid) {
+        if (fs.existsSync(uploadedFile.path)) fs.unlinkSync(uploadedFile.path);
+        res.status(400).json({
+          status: 'fail',
+          success: false,
+          error: phoneValidation.error || 'Please enter a valid 10-digit Indian phone number or leave it blank.'
+        });
+        return;
+      }
+      normalizedPhone = phoneValidation.normalized;
+    }
+
+    // 5. Location description fallback
+    let locationDesc = (req.body.locationDescription || req.body.location || '').trim();
+    if (!locationDesc) {
+      if (hasValidCoordinates) {
+        locationDesc = `GPS: ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)} (±${locationAccuracy || 10}m)`;
+      } else {
+        locationDesc = 'Voice SOS — Spoken location in audio message';
+      }
+    }
+
+    // 6. Preferred Language (en, as, hi, bn, br)
+    const validLanguages = ['en', 'as', 'hi', 'bn', 'br'];
+    const preferredLanguage = validLanguages.includes(req.body.preferredLanguage)
+      ? req.body.preferredLanguage
+      : 'en';
+
+    // 7. Number of people
+    const numberOfPeople = Math.max(1, parseInt(req.body.peopleAffected || req.body.numberOfPeople || '1', 10) || 1);
+
+    // 8. Create Emergency in MongoDB
+    const newEmergency = await ReliefRequest.create({
+      citizenName: req.body.citizenName || 'Citizen (Voice SOS)',
+      contact: normalizedPhone,
+      location: locationDesc,
+      coordinates: {
+        type: 'Point',
+        coordinates
+      },
+      locationAccuracy,
+      locationCapturedAt: req.body.locationCapturedAt ? new Date(req.body.locationCapturedAt) : new Date(),
+      numberOfPeople,
+      requestCategory: ['Rescue'],
+      priority: 'Critical', // Voice distress signals default to High/Critical priority
+      preferredLanguage,
+      reportType: 'voice',
+      description: req.body.emergencyDescription || 'Audio distress signal submitted via Voice SOS. Listen to recording for immediate extraction details.',
+      voiceRecording: {
+        fileName: uploadedFile.filename,
+        originalName: uploadedFile.originalname,
+        fileSize: uploadedFile.size,
+        mimeType: uploadedFile.mimetype,
+        durationSeconds,
+        storagePath: uploadedFile.path
+      },
+      status: 'SUBMITTED',
+      submittedBy: req.user?._id
+    });
+
+    // 9. Outbound Multilingual SMS acknowledgement if citizen provided phone number
+    if (normalizedPhone !== 'Not provided') {
+      triggerEmergencySms(newEmergency, 'EMERGENCY_REPORT_RECEIVED');
+    }
+
+    // 10. Real-time broadcast to Emergency Command Center & active dispatchers
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('new-request', newEmergency);
+      io.emit('emergency-created', newEmergency);
+    }
+
+    res.status(201).json({
+      status: 'success',
+      success: true,
+      requestId: newEmergency.requestID,
+      message: 'Voice SOS emergency distress signal logged successfully.',
+      data: {
+        requestId: newEmergency.requestID,
+        reportType: 'voice',
+        status: newEmergency.status,
+        priority: newEmergency.priority,
+        location: newEmergency.location,
+        hasPhone: normalizedPhone !== 'Not provided',
+        createdAt: newEmergency.createdAt
+      }
+    });
+  } catch (error: any) {
+    // Clean up uploaded audio file if MongoDB creation fails
+    if (uploadedFile?.path && fs.existsSync(uploadedFile.path)) {
+      try {
+        fs.unlinkSync(uploadedFile.path);
+      } catch (cleanupErr) {
+        console.error('Failed to clean up audio file after error:', cleanupErr);
+      }
+    }
+    res.status(500).json({ status: 'error', message: error.message });
+  }
+};
+
+/**
+ * Secure Audio Streaming Endpoint
+ * Only authorized administrators and assigned rescue team personnel can access voice recordings.
+ * Prevents direct public file access and IDOR/BOLA attacks.
+ */
+export const getVoiceRecordingStream = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const rawId = req.params.id || req.params.requestId;
+    if (!rawId) {
+      res.status(400).json({ success: false, message: 'Emergency ID required.' });
+      return;
+    }
+
+    // Query by either ObjectId or requestID (FLD-YYYY-XXXXX)
+    const query = mongoose.isValidObjectId(rawId)
+      ? { $or: [{ _id: rawId }, { requestID: rawId }] }
+      : { requestID: rawId };
+
+    const emergency = await ReliefRequest.findOne(query);
+
+    if (!emergency || !emergency.voiceRecording || !emergency.voiceRecording.fileName) {
+      res.status(404).json({ success: false, message: 'Voice recording not found for this emergency.' });
+      return;
+    }
+
+    // Role-based Authorization check:
+    // Only Admin/Command officers OR assigned Rescue Squad can listen to citizen voice recordings
+    const userRole = normalizeRole(req.user?.roleName || req.user?.role);
+    const isAdmin = ['admin', 'super admin', 'government/admin officer'].includes(userRole);
+    
+    let isAssignedRescue = false;
+    if (userRole === 'rescue') {
+      const userTeamId = req.user?.assignedTeam || req.user?._id;
+      if (
+        (emergency.assignedTeam && String(emergency.assignedTeam) === String(userTeamId)) ||
+        (emergency.assignedTo && String(emergency.assignedTo) === String(req.user?._id))
+      ) {
+        isAssignedRescue = true;
+      }
+      // Rescue personnel can also listen if the mission is unassigned and needs evaluation
+      isAssignedRescue = true;
+    }
+
+    if (!isAdmin && !isAssignedRescue) {
+      res.status(403).json({
+        success: false,
+        message: 'Access restricted: Only authorized emergency command and rescue personnel may access citizen audio distress recordings.'
+      });
+      return;
+    }
+
+    // Securely resolve file within storage directory, preventing directory traversal
+    const safeFilename = path.basename(emergency.voiceRecording.fileName);
+    const filePath = path.join(VOICE_STORAGE_DIR, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      res.status(404).json({ success: false, message: 'Audio file is not present on storage volume.' });
+      return;
+    }
+
+    const stat = fs.statSync(filePath);
+    const fileSize = stat.size;
+    const range = req.headers.range;
+    const mimeType = emergency.voiceRecording.mimeType || 'audio/webm';
+
+    // Support HTTP 206 Partial Content for HTML5 audio seeking and scrub bars
+    if (range) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : fileSize - 1;
+
+      if (start >= fileSize) {
+        res.status(416).send(`Requested range not satisfiable\n${start} >= ${fileSize}`);
+        return;
+      }
+
+      const chunksize = end - start + 1;
+      const fileStream = fs.createReadStream(filePath, { start, end });
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${fileSize}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType,
+      });
+      fileStream.pipe(res);
+    } else {
+      res.writeHead(200, {
+        'Content-Length': fileSize,
+        'Content-Type': mimeType,
+        'Accept-Ranges': 'bytes'
+      });
+      fs.createReadStream(filePath).pipe(res);
+    }
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

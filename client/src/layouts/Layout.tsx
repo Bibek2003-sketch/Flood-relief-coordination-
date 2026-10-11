@@ -59,11 +59,19 @@ const Layout = () => {
             {/* Desktop Navigation */}
             <div className="hidden md:flex items-center space-x-1 lg:space-x-2">
               <Link 
-                to="/emergency" 
-                className="bg-red-600 hover:bg-red-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm transition-all duration-200 shadow-lg shadow-red-950/80 border border-red-500/80 flex items-center gap-2 mr-3 group hover:scale-[1.02]"
+                to="/voice-sos" 
+                className="bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 shadow-lg shadow-red-950/80 border border-red-500/80 flex items-center gap-1.5 mr-1 group hover:scale-[1.02]"
               >
-                <HeartPulse size={18} className="animate-pulse text-red-200 group-hover:scale-110 transition-transform" />
-                <span>REPORT EMERGENCY</span>
+                <Radio size={16} className="animate-pulse text-red-200" />
+                <span>VOICE SOS</span>
+              </Link>
+              
+              <Link 
+                to="/emergency" 
+                className="bg-slate-900 hover:bg-slate-800 text-slate-200 hover:text-white px-3.5 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 border border-slate-700/80 flex items-center gap-1.5 mr-2"
+              >
+                <HeartPulse size={16} className="text-red-400" />
+                <span>REPORT FORM</span>
               </Link>
               
               {[
@@ -124,13 +132,22 @@ const Layout = () => {
         {/* Mobile Menu */}
         <div className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${isMobileMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
           <div className="bg-[#0f172a] px-4 pt-3 pb-6 space-y-2 border-t border-slate-800 shadow-2xl">
-            <Link 
-              to="/emergency" 
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="flex items-center justify-center gap-2 w-full bg-red-600 hover:bg-red-500 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-red-950 mb-3 text-sm tracking-wide"
-            >
-              <HeartPulse size={18} className="animate-pulse" /> REPORT EMERGENCY
-            </Link>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <Link 
+                to="/voice-sos" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 bg-gradient-to-r from-red-600 to-rose-600 text-white px-3 py-3 rounded-xl font-bold shadow-lg shadow-red-950 text-xs tracking-wide"
+              >
+                <Radio size={16} className="animate-pulse" /> VOICE SOS
+              </Link>
+              <Link 
+                to="/emergency" 
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 bg-slate-900 border border-slate-700 text-white px-3 py-3 rounded-xl font-bold shadow-lg text-xs tracking-wide"
+              >
+                <HeartPulse size={16} className="text-red-400" /> FORM REPORT
+              </Link>
+            </div>
             
             {[
               { name: 'Track Emergency', path: '/track-emergency' },

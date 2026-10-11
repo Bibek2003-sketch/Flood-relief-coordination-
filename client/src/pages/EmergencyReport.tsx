@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { AlertCircle, MapPin, Send, Navigation, Loader2, Check, Radio, ArrowRight, ShieldCheck, Copy, MessageSquare, PhoneCall } from 'lucide-react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { AlertCircle, MapPin, Send, Navigation, Loader2, Check, Radio, ArrowRight, ShieldCheck, Copy, MessageSquare, PhoneCall, Mic } from 'lucide-react';
 import MapComponent from '../components/MapComponent';
 import toast from 'react-hot-toast';
 import { searchPlace, reverseGeocode, GeocodeResult } from '../utils/geocoding';
+import VoiceSOS from '../components/VoiceSOS';
 
 const EmergencyReport = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'voice' ? 'voice' : 'form';
+  const [reportMode, setReportMode] = useState<'form' | 'voice'>(initialMode);
+
   const [submittedReport, setSubmittedReport] = useState<{ 
     requestId: string; 
     status: string; 
@@ -229,8 +234,40 @@ const EmergencyReport = () => {
           </p>
         </div>
         
-        <div className="bg-[#0f172a] rounded-b-2xl shadow-2xl p-6 sm:p-8 border border-slate-800">
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Mode Selector Tabs: Voice SOS vs Standard Form */}
+        <div className="grid grid-cols-2 gap-2 bg-[#0f172a] p-3 border-x border-slate-800">
+          <button
+            type="button"
+            onClick={() => setReportMode('voice')}
+            className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-mono font-bold flex items-center justify-center gap-2 transition-all ${
+              reportMode === 'voice'
+                ? 'bg-red-600 text-white shadow-lg shadow-red-950/80 ring-2 ring-red-400'
+                : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800'
+            }`}
+          >
+            <Mic className={`w-4 h-4 ${reportMode === 'voice' ? 'animate-bounce text-white' : 'text-red-400'}`} />
+            <span>Voice SOS (Speak &amp; Record)</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReportMode('form')}
+            className={`py-3 px-4 rounded-xl text-xs sm:text-sm font-mono font-bold flex items-center justify-center gap-2 transition-all ${
+              reportMode === 'form'
+                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-950/80 ring-2 ring-cyan-400'
+                : 'bg-slate-900 text-slate-300 hover:text-white border border-slate-700 hover:bg-slate-800'
+            }`}
+          >
+            <span>Standard Form Report</span>
+          </button>
+        </div>
+
+        {reportMode === 'voice' ? (
+          <div className="pt-2">
+            <VoiceSOS onSwitchToForm={() => setReportMode('form')} />
+          </div>
+        ) : (
+          <div className="bg-[#0f172a] rounded-b-2xl shadow-2xl p-6 sm:p-8 border border-slate-800">
+            <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               <div>
                 <label className="block text-xs font-mono uppercase tracking-wider text-slate-400 font-semibold mb-1.5">Full Name</label>
@@ -457,6 +494,7 @@ const EmergencyReport = () => {
             </button>
           </form>
         </div>
+        )}
       </div>
 
       {/* Confirmation Modal */}

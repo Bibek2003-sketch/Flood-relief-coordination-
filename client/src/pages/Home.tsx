@@ -96,21 +96,29 @@ const Home = () => {
           </p>
           
           {/* Command CTAs */}
-          <div className="flex flex-col sm:flex-row justify-center gap-4 pt-4">
+          <div className="flex flex-col sm:flex-row justify-center gap-3.5 pt-4">
             <Link 
-              to="/emergency" 
-              className="bg-red-600 hover:bg-red-500 text-white px-7 py-3.5 rounded-xl font-bold text-base shadow-xl shadow-red-950/80 border border-red-500 transition-all hover:scale-[1.02] flex items-center justify-center gap-2.5"
+              to="/voice-sos" 
+              className="bg-gradient-to-r from-red-600 via-rose-600 to-red-600 hover:from-red-500 hover:to-rose-500 text-white px-7 py-3.5 rounded-xl font-bold text-base shadow-xl shadow-red-950/80 border border-red-500 transition-all hover:scale-[1.02] flex items-center justify-center gap-2.5 ring-2 ring-red-400/30"
             >
-              <ShieldAlert size={22} className="animate-pulse" />
-              <span>REPORT EMERGENCY (SOS)</span>
+              <Radio size={20} className="animate-pulse text-red-200" />
+              <span>VOICE SOS (SPEAK TO REPORT)</span>
             </Link>
             
             <Link 
+              to="/emergency" 
+              className="bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 hover:border-slate-600 px-6 py-3.5 rounded-xl font-bold text-base shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+            >
+              <ShieldAlert size={20} className="text-red-400" />
+              <span>FORM REPORT</span>
+            </Link>
+
+            <Link 
               to="/shelters" 
-              className="bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-slate-700 hover:border-cyan-500/60 px-7 py-3.5 rounded-xl font-bold text-base shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
+              className="bg-slate-900 hover:bg-slate-800 text-cyan-400 border border-slate-700 hover:border-cyan-500/60 px-6 py-3.5 rounded-xl font-bold text-base shadow-lg transition-all hover:scale-[1.02] flex items-center justify-center gap-2"
             >
               <Compass size={20} />
-              <span>FIND NEARBY SHELTERS</span>
+              <span>FIND SHELTERS</span>
             </Link>
           </div>
         </div>

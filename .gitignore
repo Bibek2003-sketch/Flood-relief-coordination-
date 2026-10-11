@@ -29,6 +29,10 @@ server/dist/
 .vite/
 client/.vite/
 
+# Private Storage (Voice recordings & uploaded assets)
+server/storage/
+storage/
+
 # Logs & debugging
 *.log
 npm-debug.log*

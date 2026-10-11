@@ -4,7 +4,7 @@ export interface IReliefRequest extends Document {
   requestID: string;
   requestId?: string;
   citizenName: string;
-  contact: string;
+  contact?: string;
   contactEmail?: string;
   location: string;
   coordinates: {
@@ -18,6 +18,18 @@ export interface IReliefRequest extends Document {
   requestCategory: string[];
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   preferredLanguage?: 'en' | 'hi' | 'bn' | 'br' | 'as';
+  reportType?: 'text' | 'voice';
+  voiceRecording?: {
+    fileName: string;
+    originalName?: string;
+    fileSize: number;
+    mimeType: string;
+    durationSeconds?: number;
+    storagePath: string;
+  };
+  voiceTranscript?: string;
+  locationAccuracy?: number;
+  locationCapturedAt?: Date;
   description?: string;
   photos?: string[];
   status: string;
@@ -46,14 +58,14 @@ const reliefRequestSchema = new Schema<IReliefRequest>(
   {
     requestID: { type: String, unique: true, index: true },
     citizenName: { type: String, default: 'Citizen' },
-    contact: { type: String, required: true },
+    contact: { type: String, default: 'Not provided' },
     contactEmail: { type: String },
-    location: { type: String, required: true },
+    location: { type: String, default: 'Location pending verification' },
     coordinates: {
       type: { type: String, enum: ['Point'], default: 'Point' },
-      coordinates: { type: [Number], required: true },
+      coordinates: { type: [Number], default: [91.7362, 26.1445] },
     },
-    numberOfPeople: { type: Number, required: true, min: 1 },
+    numberOfPeople: { type: Number, default: 1, min: 1 },
     numberOfChildren: { type: Number, default: 0 },
     numberOfElderly: { type: Number, default: 0 },
     numberOfDisabled: { type: Number, default: 0 },
@@ -72,6 +84,23 @@ const reliefRequestSchema = new Schema<IReliefRequest>(
       default: 'en',
       index: true
     },
+    reportType: {
+      type: String,
+      enum: ['text', 'voice'],
+      default: 'text',
+      index: true
+    },
+    voiceRecording: {
+      fileName: { type: String },
+      originalName: { type: String },
+      fileSize: { type: Number },
+      mimeType: { type: String },
+      durationSeconds: { type: Number },
+      storagePath: { type: String }
+    },
+    voiceTranscript: { type: String },
+    locationAccuracy: { type: Number },
+    locationCapturedAt: { type: Date },
     description: { type: String },
     photos: [{ type: String }],
     status: {
@@ -131,10 +160,13 @@ reliefRequestSchema.pre('save', function(next) {
 
     // Initialize first timeline entry
     if (!this.timeline || this.timeline.length === 0) {
+      const isVoice = this.reportType === 'voice';
       this.timeline = [{
         status: 'SUBMITTED',
-        title: 'Emergency Distress Call Logged',
-        note: `Initial SOS report submitted for ${this.numberOfPeople} people. Auto-priority set to ${this.priority}.`,
+        title: isVoice ? 'Voice SOS Audio Distress Call Logged' : 'Emergency Distress Call Logged',
+        note: isVoice 
+          ? `Voice SOS message received and securely stored (${this.voiceRecording?.durationSeconds || 0}s). Priority set to ${this.priority}.`
+          : `Initial SOS report submitted for ${this.numberOfPeople} people. Auto-priority set to ${this.priority}.`,
         timestamp: new Date()
       }];
     }

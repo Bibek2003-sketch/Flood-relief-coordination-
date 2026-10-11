@@ -12,6 +12,7 @@
     "verify-workflow": "tsx src/utils/simulate-workflow.ts",
     "test:features": "tsx src/utils/verify-features.ts",
     "test:sms": "tsx src/utils/verify-sms.ts",
+    "test:voice": "tsx src/utils/verify-voice-sos.ts",
     "test": "jest --detectOpenHandles --forceExit"
   },
   "dependencies": {

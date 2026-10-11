@@ -5,9 +5,12 @@ import {
   createRequest, 
   updateRequestStatus,
   trackRequest,
-  getPublicOverviewStats
+  getPublicOverviewStats,
+  createVoiceRequest,
+  getVoiceRecordingStream
 } from '../controllers/reliefRequestController';
 import { protect, authorize } from '../middleware/auth';
+import { voiceUpload } from '../utils/audioStorage';
 import rateLimit from 'express-rate-limit';
 
 const router = express.Router();
@@ -50,6 +53,12 @@ router.get('/me', protect, getMyRequests);
 
 // Create request (Citizen mostly, but anyone can submit on behalf) - PUBLIC access for SOS
 router.post('/', emergencyReportLimiter, createRequest);
+
+// Public Voice SOS Emergency Submission (Unauthenticated with audio file upload)
+router.post('/voice', emergencyReportLimiter, voiceUpload.single('audio'), createVoiceRequest);
+
+// Secure Audio Streaming (Authorized Command & Rescue Personnel Only)
+router.get('/:id/voice-recording', protect, authorize('admin', 'rescue', 'Super Admin', 'Government/Admin Officer', 'Rescue Team'), getVoiceRecordingStream);
 
 // Update status (Admin, NGO, Rescue, Volunteer)
 router.put('/:id/status', protect, authorize('admin', 'rescue', 'volunteer', 'ngo', 'Super Admin', 'Government/Admin Officer', 'NGO Coordinator', 'Rescue Team', 'Volunteer'), updateRequestStatus);

@@ -18,6 +18,7 @@ import Donation from './pages/Donation';
 import MedicalDashboard from './pages/MedicalDashboard';
 import LogoOptions from './pages/LogoOptions';
 import EmergencyContacts from './pages/EmergencyContacts';
+import VoiceSOSPage from './pages/VoiceSOSPage';
 
 // Role Dashboards
 import AdminDashboard from './pages/dashboards/AdminDashboard';
@@ -54,6 +55,7 @@ function App() {
                 <Route path="register" element={<Register />} />
                 <Route path="emergency" element={<EmergencyReport />} />
                 <Route path="report-emergency" element={<EmergencyReport />} />
+                <Route path="voice-sos" element={<VoiceSOSPage />} />
                 <Route path="track-emergency" element={<TrackEmergency />} />
                 <Route path="shelters" element={<SheltersFinder />} />
                 <Route path="find-shelter" element={<SheltersFinder />} />

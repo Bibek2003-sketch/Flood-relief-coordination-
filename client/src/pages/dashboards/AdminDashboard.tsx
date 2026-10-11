@@ -62,6 +62,16 @@ interface Emergency {
   status: string;
   requestCategory: string[];
   description?: string;
+  reportType?: 'text' | 'voice';
+  preferredLanguage?: string;
+  locationAccuracy?: number;
+  voiceRecording?: {
+    fileName: string;
+    originalName?: string;
+    durationSeconds?: number;
+    mimeType?: string;
+    fileSize?: number;
+  };
   assignedTeam?: {
     _id: string;
     teamId?: string;
@@ -713,9 +723,16 @@ const AdminDashboard: React.FC = () => {
                 >
                   {/* Top Bar: ID + Status + Priority */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-bold text-cyan-400 font-mono text-xs">
-                      {reqId}
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-cyan-400 font-mono text-xs">
+                        {reqId}
+                      </span>
+                      {e.reportType === 'voice' && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center gap-1">
+                          🎙️ Voice
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1.5">
                       {getPriorityBadge(e.priority)}
                       {getStatusBadge(e.status)}
@@ -814,7 +831,14 @@ const AdminDashboard: React.FC = () => {
                   return (
                     <tr key={e._id} className="hover:bg-slate-800/30 transition-colors">
                       <td className="py-3 px-3 font-bold text-cyan-400 whitespace-nowrap">
-                        {reqId}
+                        <div className="flex items-center gap-1.5">
+                          <span>{reqId}</span>
+                          {e.reportType === 'voice' && (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                              🎙️ Voice
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="py-3 px-3 whitespace-nowrap">
@@ -1519,7 +1543,14 @@ const AdminDashboard: React.FC = () => {
           <div className="bg-[#0f172a] border border-slate-700 rounded-2xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl space-y-4 sm:space-y-5 text-left relative max-h-[92vh] overflow-y-auto">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">
               <div>
-                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">EMERGENCY CONTROLLER</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-400">EMERGENCY CONTROLLER</span>
+                  {selectedEmergency.reportType === 'voice' && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                      🎙️ VOICE SOS
+                    </span>
+                  )}
+                </div>
                 <h3 className="text-base sm:text-lg font-bold text-white truncate max-w-[250px] sm:max-w-none">
                   Incident {selectedEmergency.requestID || selectedEmergency.requestId || selectedEmergency._id}
                 </h3>
@@ -1561,6 +1592,52 @@ const AdminDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+
+            {/* Citizen Voice SOS Recording Playback Box */}
+            {(selectedEmergency.reportType === 'voice' || selectedEmergency.voiceRecording) && (
+              <div className="p-4 bg-rose-950/30 border border-rose-500/40 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                    <span className="text-xs font-mono font-bold text-rose-300 uppercase tracking-wider">
+                      🎙️ Citizen Spoken Distress Recording
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[10px] font-mono text-slate-300">
+                    {selectedEmergency.preferredLanguage && (
+                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 uppercase">
+                        Lang: {selectedEmergency.preferredLanguage}
+                      </span>
+                    )}
+                    {selectedEmergency.voiceRecording?.durationSeconds !== undefined && (
+                      <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700">
+                        {selectedEmergency.voiceRecording.durationSeconds}s
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* HTML5 Audio Player streaming securely from authorized endpoint */}
+                <div className="bg-slate-950/80 p-3 rounded-lg border border-slate-800">
+                  <audio
+                    controls
+                    className="w-full h-10 accent-rose-500"
+                    src={`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api/v1'}/requests/${selectedEmergency._id}/voice-recording?token=${localStorage.getItem('token') || ''}`}
+                  >
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+
+                <div className="text-[11px] font-mono text-slate-400 flex items-center justify-between">
+                  <span>
+                    {selectedEmergency.locationAccuracy ? `GPS Accuracy: ±${selectedEmergency.locationAccuracy}m` : 'Spoken landmark / location'}
+                  </span>
+                  <span className="text-rose-400 font-semibold">
+                    Live Field Voice SOS
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Verification Actions: flex-col on mobile, flex-row on sm */}
             <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
