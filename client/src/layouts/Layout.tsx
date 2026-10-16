@@ -3,6 +3,7 @@ import { Menu, X, User, HeartPulse, Radio, PhoneCall, ShieldAlert, Waves } from 
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { ProfileDropdown } from '../components/ProfileDropdown';
+import { FloodReliefAIGuide } from '../components/FloodReliefAIGuide';
 import { getUserAcronym } from '../utils/googleAuth';
 import logoImg from '../assets/logo.jpg';
 
@@ -297,6 +298,9 @@ const Layout = () => {
           </div>
         </div>
       </footer>
+
+      {/* Floating AI Guide Assistant */}
+      <FloodReliefAIGuide />
     </div>
   );
 };

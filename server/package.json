@@ -13,6 +13,7 @@
     "test:features": "tsx src/utils/verify-features.ts",
     "test:sms": "tsx src/utils/verify-sms.ts",
     "test:voice": "tsx src/utils/verify-voice-sos.ts",
+    "test:guide": "tsx src/utils/verify-ai-guide.ts",
     "test": "jest --detectOpenHandles --forceExit"
   },
   "dependencies": {

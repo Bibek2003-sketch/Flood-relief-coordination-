@@ -21,6 +21,7 @@ import notificationRoutes from './routes/notificationRoutes';
 import smsNotificationRoutes from './routes/smsNotificationRoutes';
 import donationRoutes from './routes/donationRoutes';
 import medicalRoutes from './routes/medicalRoutes';
+import aiGuideRoutes from './routes/aiGuideRoutes';
 import { ensureDemoRescueTeams } from './utils/rescueTeamSeeder';
 
 dotenv.config(); // Root .env
@@ -110,6 +111,7 @@ app.use('/api/v1/notifications', notificationRoutes);
 app.use('/api/v1/notifications/sms', smsNotificationRoutes);
 app.use('/api/v1/donations', donationRoutes);
 app.use('/api/v1/medical', medicalRoutes);
+app.use('/api/v1/guide', aiGuideRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
