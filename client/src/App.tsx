@@ -36,12 +36,13 @@ function App() {
     <GoogleOAuthProvider clientId={googleClientId}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <BrowserRouter
-            future={{
-              v7_startTransition: true,
-              v7_relativeSplatPath: true,
-            }}
-          >
+          <ThemeProvider>
+            <BrowserRouter
+              future={{
+                v7_startTransition: true,
+                v7_relativeSplatPath: true,
+              }}
+            >
             <Toaster 
               position="top-right" 
               toastOptions={{ 
@@ -102,7 +103,8 @@ function App() {
               </Route>
             </Routes>
           </BrowserRouter>
-        </AuthProvider>
+        </ThemeProvider>
+      </AuthProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>
   );

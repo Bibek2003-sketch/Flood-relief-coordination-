@@ -1,7 +1,8 @@
 import { Outlet, Link, useLocation } from 'react-router-dom';
-import { Menu, X, User, HeartPulse, Radio, PhoneCall, ShieldAlert, Waves } from 'lucide-react';
+import { Menu, X, User, HeartPulse, Radio, PhoneCall, ShieldAlert, Waves, Sun, Moon } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
 import { ProfileDropdown } from '../components/ProfileDropdown';
 import { FloodReliefAIGuide } from '../components/FloodReliefAIGuide';
 import { getUserAcronym } from '../utils/googleAuth';
@@ -9,6 +10,7 @@ import logoImg from '../assets/logo.jpg';
 
 const Layout = () => {
   const { user, logout } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [logoError, setLogoError] = useState(false);
   const location = useLocation();
@@ -115,10 +117,31 @@ const Layout = () => {
                   </Link>
                 </div>
               )}
+
+              {/* Theme Toggle Button (Desktop) */}
+              <button 
+                onClick={toggleTheme}
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                className="ml-2 p-2.5 rounded-xl border border-slate-700/60 hover:border-slate-500 bg-slate-900/60 hover:bg-slate-800 transition-all flex items-center justify-center text-slate-300 hover:text-white"
+              >
+                {theme === 'light' ? (
+                  <Moon size={16} className="text-indigo-600 transition-transform hover:-rotate-12" />
+                ) : (
+                  <Sun size={16} className="text-amber-400 transition-transform hover:rotate-45" />
+                )}
+              </button>
             </div>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden flex items-center">
+            {/* Mobile menu button & Theme toggle */}
+            <div className="md:hidden flex items-center gap-2">
+              <button 
+                onClick={toggleTheme}
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+                className="text-slate-300 hover:text-white p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all flex items-center justify-center"
+              >
+                {theme === 'light' ? <Moon size={18} className="text-indigo-600" /> : <Sun size={18} className="text-amber-400" />}
+              </button>
               <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="text-slate-300 hover:text-white p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:bg-slate-800 transition-all"

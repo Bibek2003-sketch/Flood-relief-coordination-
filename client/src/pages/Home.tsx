@@ -63,16 +63,33 @@ const Home = () => {
         {FLOOD_IMAGES.map((img, index) => (
           <div 
             key={img}
-            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-35' : 'opacity-0'}`}
+            className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-85' : 'opacity-0'}`}
           >
-            <div className="absolute inset-0 bg-gradient-to-b from-[#0b0f19]/90 via-[#0b0f19]/75 to-[#0b0f19] z-10"></div>
+            <div className="absolute inset-0 hero-overlay bg-gradient-to-b from-slate-950/70 via-slate-950/45 to-slate-950/75 z-10"></div>
             <img 
               src={img} 
-              alt="Disaster response area" 
-              className="object-cover w-full h-full transform scale-105"
+              alt="Flood relief operations area" 
+              className="object-cover w-full h-full transform transition-transform duration-1000 scale-100"
+              loading="eager"
             />
           </div>
         ))}
+        
+        {/* Slide Indicators */}
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/10 shadow-lg">
+          {FLOOD_IMAGES.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentImageIndex(idx)}
+              aria-label={`Show image ${idx + 1}`}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                idx === currentImageIndex
+                  ? 'w-6 bg-cyan-400'
+                  : 'w-2 bg-white/40 hover:bg-white/70'
+              }`}
+            />
+          ))}
+        </div>
         
         <div className="max-w-4xl mx-auto text-center relative z-20 mt-4 space-y-6">
           
@@ -84,14 +101,14 @@ const Home = () => {
             <span className="text-slate-300">ASSAM DISASTER COORDINATION NETWORK</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white">
+          <h1 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold tracking-tight text-white drop-shadow-lg">
             Coordinating Help.<br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400">
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-teal-300 to-blue-400 drop-shadow">
               Saving Lives in Real-Time.
             </span>
           </h1>
 
-          <p className="text-base sm:text-xl text-slate-300 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base sm:text-xl text-slate-100 max-w-2xl mx-auto leading-relaxed drop-shadow-md font-medium">
             Mission-critical platform linking stranded flood victims with emergency rescue squads, verified relief shelters, and rapid supply chains.
           </p>
           
